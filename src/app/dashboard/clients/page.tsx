@@ -156,7 +156,10 @@ export default function ClientsPage() {
   const openEditClientModal = (client: ClientData) => {
     setEditingClient(client);
     setFormData({ name: client.name, email: client.email, phone: client.phone, company: client.company || '' });
-    setIsDialogOpen(true);
+    // Pequeño delay para asegurar que el dropdown se haya cerrado completamente
+    setTimeout(() => {
+      setIsDialogOpen(true);
+    }, 100);
   };
 
   return (
@@ -262,20 +265,14 @@ export default function ClientsPage() {
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
                             <DropdownMenuItem 
                               className="gap-2 cursor-pointer" 
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                openEditClientModal(client);
-                              }}
+                              onClick={() => openEditClientModal(client)}
                             >
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 text-red-400 cursor-pointer"
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                deleteClient(client.id);
-                              }}
+                              onClick={() => deleteClient(client.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
@@ -290,7 +287,15 @@ export default function ClientsPage() {
           )}
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          if (!open) {
+            setIsDialogOpen(false);
+            // Forzar limpieza de pointer-events si Radix falla
+            setTimeout(() => {
+              document.body.style.pointerEvents = 'auto';
+            }, 300);
+          }
+        }}>
           <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-white">

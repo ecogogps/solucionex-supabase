@@ -161,7 +161,10 @@ export default function Dashboard() {
   const openEditPackageModal = (pkg: PackageData) => {
     setEditingPackage(pkg);
     setFormData({ client: pkg.client, destiny: pkg.destiny, status: pkg.status });
-    setIsDialogOpen(true);
+    // Pequeño delay para asegurar que el dropdown se haya cerrado completamente
+    setTimeout(() => {
+      setIsDialogOpen(true);
+    }, 100);
   };
 
   const getStatusBadge = (status: string) => {
@@ -267,20 +270,14 @@ export default function Dashboard() {
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
                             <DropdownMenuItem 
                               className="gap-2 cursor-pointer" 
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                openEditPackageModal(pkg);
-                              }}
+                              onClick={() => openEditPackageModal(pkg)}
                             >
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 text-red-400 cursor-pointer"
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                deletePackage(pkg.id);
-                              }}
+                              onClick={() => deletePackage(pkg.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
@@ -295,7 +292,15 @@ export default function Dashboard() {
           )}
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          if (!open) {
+            setIsDialogOpen(false);
+            // Forzar limpieza de pointer-events si Radix falla
+            setTimeout(() => {
+              document.body.style.pointerEvents = 'auto';
+            }, 300);
+          }
+        }}>
           <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-white">
