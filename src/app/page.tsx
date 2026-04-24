@@ -43,7 +43,7 @@ export default function LoginPage() {
             <Truck className="h-10 w-10 text-accent" />
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight text-white">
-            Solucionex <span className="text-accent">Pro</span>
+            Solucionex
           </h1>
           <p className="text-slate-300 mt-2 font-medium">Logística Inteligente</p>
         </div>
