@@ -260,13 +260,22 @@ export default function ClientsPage() {
                             <Button variant="ghost" size="icon" className="hover:bg-white/10"><MoreVertical className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
-                            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => openEditClientModal(client)}>
+                            <DropdownMenuItem 
+                              className="gap-2 cursor-pointer" 
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                openEditClientModal(client);
+                              }}
+                            >
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 text-red-400 cursor-pointer"
-                              onClick={() => deleteClient(client.id)}
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                deleteClient(client.id);
+                              }}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
