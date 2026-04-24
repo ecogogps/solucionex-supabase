@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Users, 
+  Building2, 
   Plus, 
   Search, 
   MoreVertical, 
@@ -14,7 +14,7 @@ import {
   Loader2,
   Mail,
   Phone,
-  Package,
+  ClipboardList,
   UserCheck,
   BadgeCheck
 } from 'lucide-react';
@@ -165,7 +165,6 @@ export default function OperatorsPage() {
   const openEditOperatorModal = (op: OperatorData) => {
     setEditingOperator(op);
     setFormData({ name: op.name, email: op.email, phone: op.phone, vehicle: op.vehicle, status: op.status });
-    // Pequeño delay para asegurar que el dropdown se haya cerrado completamente
     setTimeout(() => {
       setIsDialogOpen(true);
     }, 100);
@@ -181,12 +180,12 @@ export default function OperatorsPage() {
         <nav className="flex-1 space-y-2">
           <Link href="/dashboard">
             <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-white hover:bg-white/5 mb-2">
-              <Package className="h-5 w-5" /> Envíos
+              <ClipboardList className="h-5 w-5" /> Pedidos
             </Button>
           </Link>
           <Link href="/dashboard/clients">
             <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-white hover:bg-white/5">
-              <Users className="h-5 w-5" /> Clientes
+              <Building2 className="h-5 w-5" /> Empresas
             </Button>
           </Link>
           <Link href="/dashboard/operators">
@@ -232,7 +231,7 @@ export default function OperatorsPage() {
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
               <UserCheck className="h-12 w-12 text-slate-500 mb-4" />
               <h3 className="text-lg font-semibold text-white">Sin operadores registrados</h3>
-              <p className="text-slate-400">Agrega conductores para empezar a asignar envíos.</p>
+              <p className="text-slate-400">Agrega conductores para empezar a asignar pedidos.</p>
             </div>
           ) : (
             <div className="bg-white/5 rounded-xl shadow-2xl border border-white/10 overflow-hidden backdrop-blur-sm">
@@ -313,7 +312,6 @@ export default function OperatorsPage() {
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           if (!open) {
             setIsDialogOpen(false);
-            // Forzar limpieza de pointer-events si Radix falla
             setTimeout(() => {
               document.body.style.pointerEvents = 'auto';
             }, 300);

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Package, 
+  ClipboardList, 
   Plus, 
   Search, 
   MoreVertical, 
@@ -15,7 +15,7 @@ import {
   Edit2,
   Loader2,
   AlertCircle,
-  Users,
+  Building2,
   UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -49,36 +49,36 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-interface PackageData {
+interface OrderData {
   id: string;
   tracking: string;
-  client: string;
+  company: string;
   status: string;
   destiny: string;
   created_at: string;
 }
 
 export default function Dashboard() {
-  const [packages, setPackages] = useState<PackageData[]>([]);
+  const [orders, setOrders] = useState<OrderData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingPackage, setEditingPackage] = useState<PackageData | null>(null);
+  const [editingOrder, setEditingOrder] = useState<OrderData | null>(null);
   
-  const [formData, setFormData] = useState({ client: '', destiny: '', status: 'Pendiente' });
+  const [formData, setFormData] = useState({ company: '', destiny: '', status: 'Pendiente' });
   
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchPackages();
+    fetchOrders();
   }, []);
 
-  const fetchPackages = async () => {
+  const fetchOrders = async () => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setPackages([
-        { id: '1', tracking: 'TRK-9901', client: 'Empresa Demo A', destiny: 'Calle Falsa 123', status: 'En Ruta', created_at: new Date().toISOString() },
-        { id: '2', tracking: 'TRK-4422', client: 'Tienda Ejemplo', destiny: 'Av. Libertador 456', status: 'Pendiente', created_at: new Date().toISOString() }
+      setOrders([
+        { id: '1', tracking: 'PED-9901', company: 'Empresa Demo A', destiny: 'Calle Falsa 123', status: 'En Ruta', created_at: new Date().toISOString() },
+        { id: '2', tracking: 'PED-4422', company: 'Tienda Ejemplo', destiny: 'Av. Libertador 456', status: 'Pendiente', created_at: new Date().toISOString() }
       ]);
       setLoading(false);
       return;
@@ -87,49 +87,49 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('packages')
+        .from('orders')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setPackages(data || []);
+      setOrders(data || []);
     } catch (error: any) {
-      console.error("Error cargando paquetes:", error);
+      console.error("Error cargando pedidos:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!formData.client || !formData.destiny) {
+    if (!formData.company || !formData.destiny) {
       toast({ variant: "destructive", title: "Campos incompletos", description: "Por favor llena todos los campos." });
       return;
     }
 
     try {
       if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        if (editingPackage) {
-          setPackages(packages.map(p => p.id === editingPackage.id ? { ...p, ...formData } : p));
+        if (editingOrder) {
+          setOrders(orders.map(p => p.id === editingOrder.id ? { ...p, ...formData } : p));
         } else {
-          const newPkg = { 
+          const newOrder = { 
             id: Math.random().toString(), 
-            tracking: `TRK-${Math.floor(1000 + Math.random() * 9000)}`, 
+            tracking: `PED-${Math.floor(1000 + Math.random() * 9000)}`, 
             ...formData, 
             created_at: new Date().toISOString() 
           };
-          setPackages([newPkg, ...packages]);
+          setOrders([newOrder, ...orders]);
         }
-        toast({ title: "Operación exitosa", description: "Cambios guardados localmente." });
+        toast({ title: "Operación exitosa", description: "Pedido guardado localmente." });
       } else {
-        if (editingPackage) {
-          const { error } = await supabase.from('packages').update(formData).eq('id', editingPackage.id);
+        if (editingOrder) {
+          const { error } = await supabase.from('orders').update(formData).eq('id', editingOrder.id);
           if (error) throw error;
         } else {
-          const tracking = `TRK-${Math.floor(1000 + Math.random() * 9000)}`;
-          const { error } = await supabase.from('packages').insert([{ ...formData, tracking }]);
+          const tracking = `PED-${Math.floor(1000 + Math.random() * 9000)}`;
+          const { error } = await supabase.from('orders').insert([{ ...formData, tracking }]);
           if (error) throw error;
         }
-        fetchPackages();
+        fetchOrders();
       }
       setIsDialogOpen(false);
     } catch (error: any) {
@@ -137,31 +137,30 @@ export default function Dashboard() {
     }
   };
 
-  const deletePackage = async (id: string) => {
+  const deleteOrder = async (id: string) => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setPackages(packages.filter(p => p.id !== id));
-      toast({ title: "Eliminado", description: "El envío ha sido removido." });
+      setOrders(orders.filter(p => p.id !== id));
+      toast({ title: "Eliminado", description: "El pedido ha sido removido." });
       return;
     }
 
     try {
-      await supabase.from('packages').delete().eq('id', id);
-      fetchPackages();
+      await supabase.from('orders').delete().eq('id', id);
+      fetchOrders();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al eliminar", description: error.message });
     }
   };
 
-  const openNewPackageModal = () => {
-    setEditingPackage(null);
-    setFormData({ client: '', destiny: '', status: 'Pendiente' });
+  const openNewOrderModal = () => {
+    setEditingOrder(null);
+    setFormData({ company: '', destiny: '', status: 'Pendiente' });
     setIsDialogOpen(true);
   };
 
-  const openEditPackageModal = (pkg: PackageData) => {
-    setEditingPackage(pkg);
-    setFormData({ client: pkg.client, destiny: pkg.destiny, status: pkg.status });
-    // Pequeño delay para asegurar que el dropdown se haya cerrado completamente
+  const openEditOrderModal = (order: OrderData) => {
+    setEditingOrder(order);
+    setFormData({ company: order.company, destiny: order.destiny, status: order.status });
     setTimeout(() => {
       setIsDialogOpen(true);
     }, 100);
@@ -185,12 +184,12 @@ export default function Dashboard() {
         <nav className="flex-1 space-y-2">
           <Link href="/dashboard">
             <Button variant="ghost" className="w-full justify-start gap-3 bg-white/10 text-white hover:bg-white/20 mb-2">
-              <Package className="h-5 w-5 text-accent" /> Envíos
+              <ClipboardList className="h-5 w-5 text-accent" /> Pedidos
             </Button>
           </Link>
           <Link href="/dashboard/clients">
             <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-white hover:bg-white/5">
-              <Users className="h-5 w-5" /> Clientes
+              <Building2 className="h-5 w-5" /> Empresas
             </Button>
           </Link>
           <Link href="/dashboard/operators">
@@ -208,20 +207,20 @@ export default function Dashboard() {
 
       <main className="flex-1 flex flex-col">
         <header className="h-16 bg-white/5 border-b border-white/10 flex items-center justify-between px-8">
-          <h2 className="text-xl font-bold text-white">Gestión de Paquetes</h2>
+          <h2 className="text-xl font-bold text-white">Gestión de Pedidos</h2>
           <div className="flex items-center gap-4">
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input 
-                placeholder="Buscar envío..." 
+                placeholder="Buscar pedido..." 
                 className="w-full bg-white/5 border border-white/10 rounded-md py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-accent text-white placeholder:text-slate-500" 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             
-            <Button onClick={openNewPackageModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
-              <Plus className="h-4 w-4 mr-2" /> Nuevo Envío
+            <Button onClick={openNewOrderModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
+              <Plus className="h-4 w-4 mr-2" /> Nuevo Pedido
             </Button>
           </div>
         </header>
@@ -232,36 +231,36 @@ export default function Dashboard() {
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
               <p>Cargando información...</p>
             </div>
-          ) : packages.length === 0 ? (
+          ) : orders.length === 0 ? (
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
               <AlertCircle className="h-12 w-12 text-slate-500 mb-4" />
-              <h3 className="text-lg font-semibold text-white">Sin paquetes</h3>
-              <p className="text-slate-400">Comienza registrando tu primer envío.</p>
+              <h3 className="text-lg font-semibold text-white">Sin pedidos registrados</h3>
+              <p className="text-slate-400">Comienza registrando tu primer pedido.</p>
             </div>
           ) : (
             <div className="bg-white/5 rounded-xl shadow-2xl border border-white/10 overflow-hidden backdrop-blur-sm">
               <Table>
                 <TableHeader className="bg-white/10">
                   <TableRow className="border-white/10 hover:bg-transparent">
-                    <TableHead className="font-bold text-slate-300">Tracking ID</TableHead>
-                    <TableHead className="font-bold text-slate-300">Cliente</TableHead>
+                    <TableHead className="font-bold text-slate-300">Pedido ID</TableHead>
+                    <TableHead className="font-bold text-slate-300">Empresa</TableHead>
                     <TableHead className="font-bold text-slate-300">Destino</TableHead>
                     <TableHead className="font-bold text-slate-300">Estado</TableHead>
                     <TableHead className="text-right font-bold text-slate-300">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {packages
+                  {orders
                     .filter(p => 
-                      p.client.toLowerCase().includes(search.toLowerCase()) || 
+                      p.company.toLowerCase().includes(search.toLowerCase()) || 
                       p.tracking.toLowerCase().includes(search.toLowerCase())
                     )
-                    .map((pkg) => (
-                    <TableRow key={pkg.id} className="border-white/10 hover:bg-white/5">
-                      <TableCell className="font-mono font-medium text-accent">{pkg.tracking}</TableCell>
-                      <TableCell className="text-white">{pkg.client}</TableCell>
-                      <TableCell className="text-slate-300">{pkg.destiny}</TableCell>
-                      <TableCell>{getStatusBadge(pkg.status)}</TableCell>
+                    .map((order) => (
+                    <TableRow key={order.id} className="border-white/10 hover:bg-white/5">
+                      <TableCell className="font-mono font-medium text-accent">{order.tracking}</TableCell>
+                      <TableCell className="text-white">{order.company}</TableCell>
+                      <TableCell className="text-slate-300">{order.destiny}</TableCell>
+                      <TableCell>{getStatusBadge(order.status)}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -270,14 +269,14 @@ export default function Dashboard() {
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
                             <DropdownMenuItem 
                               className="gap-2 cursor-pointer" 
-                              onClick={() => openEditPackageModal(pkg)}
+                              onClick={() => openEditOrderModal(order)}
                             >
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 text-red-400 cursor-pointer"
-                              onClick={() => deletePackage(pkg.id)}
+                              onClick={() => deleteOrder(order.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
@@ -295,7 +294,6 @@ export default function Dashboard() {
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           if (!open) {
             setIsDialogOpen(false);
-            // Forzar limpieza de pointer-events si Radix falla
             setTimeout(() => {
               document.body.style.pointerEvents = 'auto';
             }, 300);
@@ -304,20 +302,20 @@ export default function Dashboard() {
           <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-white">
-                {editingPackage ? 'Editar Envío' : 'Registrar Nuevo Paquete'}
+                {editingOrder ? 'Editar Pedido' : 'Registrar Nuevo Pedido'}
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="client">Nombre del Cliente</Label>
-                <Input id="client" value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Juan Pérez" />
+                <Label htmlFor="company">Empresa Solicitante</Label>
+                <Input id="company" value={formData.company} onChange={(e) => setFormData({...formData, company: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Empresa ACME" />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="destiny">Dirección de Destino</Label>
                 <Input id="destiny" value={formData.destiny} onChange={(e) => setFormData({...formData, destiny: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Av. Principal 123" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="status">Estado</Label>
+                <Label htmlFor="status">Estado del Pedido</Label>
                 <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
                   <SelectTrigger className="bg-white/5 border-white/10">
                     <SelectValue placeholder="Seleccionar" />
