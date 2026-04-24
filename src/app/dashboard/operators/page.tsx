@@ -3,20 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Package, 
+  Users, 
   Plus, 
   Search, 
   MoreVertical, 
   LogOut, 
   Truck, 
-  Clock, 
-  CheckCircle2, 
   Trash2,
   Edit2,
   Loader2,
-  AlertCircle,
-  Users,
-  UserCheck
+  Mail,
+  Phone,
+  Package,
+  UserCheck,
+  ShieldCheck,
+  BadgeCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +36,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { 
   Dialog, 
   DialogContent, 
@@ -45,41 +45,48 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-interface PackageData {
+interface OperatorData {
   id: string;
-  tracking: string;
-  client: string;
-  status: string;
-  destiny: string;
+  name: string;
+  email: string;
+  phone: string;
+  vehicle: string;
+  status: 'Activo' | 'Inactivo';
   created_at: string;
 }
 
-export default function Dashboard() {
-  const [packages, setPackages] = useState<PackageData[]>([]);
+export default function OperatorsPage() {
+  const [operators, setOperators] = useState<OperatorData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingPackage, setEditingPackage] = useState<PackageData | null>(null);
+  const [editingOperator, setEditingOperator] = useState<OperatorData | null>(null);
   
-  const [formData, setFormData] = useState({ client: '', destiny: '', status: 'Pendiente' });
+  const [formData, setFormData] = useState({ 
+    name: '', 
+    email: '', 
+    phone: '', 
+    vehicle: '', 
+    status: 'Activo' as const 
+  });
   
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchPackages();
+    fetchOperators();
   }, []);
 
-  const fetchPackages = async () => {
+  const fetchOperators = async () => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setPackages([
-        { id: '1', tracking: 'TRK-9901', client: 'Empresa Demo A', destiny: 'Calle Falsa 123', status: 'En Ruta', created_at: new Date().toISOString() },
-        { id: '2', tracking: 'TRK-4422', client: 'Tienda Ejemplo', destiny: 'Av. Libertador 456', status: 'Pendiente', created_at: new Date().toISOString() }
+      setOperators([
+        { id: '1', name: 'Carlos Rodríguez', email: 'carlos@solucionex.com', phone: '555-0300', vehicle: 'Van Blanca (ABC-123)', status: 'Activo', created_at: new Date().toISOString() },
+        { id: '2', name: 'Ana Martínez', email: 'ana.m@solucionex.com', phone: '555-0450', vehicle: 'Moto Express (XYZ-987)', status: 'Activo', created_at: new Date().toISOString() }
       ]);
       setLoading(false);
       return;
@@ -88,77 +95,67 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('packages')
+        .from('operators')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setPackages(data || []);
+      setOperators(data || []);
     } catch (error: any) {
-      console.error("Error cargando paquetes:", error);
+      console.error("Error cargando operadores:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!formData.client || !formData.destiny) {
-      toast({ variant: "destructive", title: "Campos incompletos", description: "Por favor llena todos los campos." });
+    if (!formData.name || !formData.email || !formData.vehicle) {
+      toast({ variant: "destructive", title: "Campos incompletos", description: "Nombre, correo y vehículo son obligatorios." });
       return;
     }
 
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      if (editingPackage) {
-        setPackages(packages.map(p => p.id === editingPackage.id ? { ...p, ...formData } : p));
+      if (editingOperator) {
+        setOperators(operators.map(o => o.id === editingOperator.id ? { ...o, ...formData } : o));
       } else {
-        const newPkg = { 
+        const newOp = { 
           id: Math.random().toString(), 
-          tracking: `TRK-${Math.floor(1000 + Math.random() * 9000)}`, 
           ...formData, 
           created_at: new Date().toISOString() 
         };
-        setPackages([newPkg, ...packages]);
+        setOperators([newOp, ...operators]);
       }
       setIsDialogOpen(false);
-      toast({ title: "Operación exitosa", description: "Cambios guardados localmente (Modo Demo)." });
+      toast({ title: "Operación exitosa", description: "Operador guardado localmente (Modo Demo)." });
       return;
     }
 
     try {
-      if (editingPackage) {
-        const { error } = await supabase.from('packages').update(formData).eq('id', editingPackage.id);
+      if (editingOperator) {
+        const { error } = await supabase.from('operators').update(formData).eq('id', editingOperator.id);
         if (error) throw error;
       } else {
-        const tracking = `TRK-${Math.floor(1000 + Math.random() * 9000)}`;
-        const { error } = await supabase.from('packages').insert([{ ...formData, tracking }]);
+        const { error } = await supabase.from('operators').insert([formData]);
         if (error) throw error;
       }
       setIsDialogOpen(false);
-      fetchPackages();
+      fetchOperators();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al guardar", description: error.message });
     }
   };
 
-  const deletePackage = async (id: string) => {
+  const deleteOperator = async (id: string) => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setPackages(packages.filter(p => p.id !== id));
+      setOperators(operators.filter(o => o.id !== id));
       return;
     }
 
     try {
-      await supabase.from('packages').delete().eq('id', id);
-      fetchPackages();
+      await supabase.from('operators').delete().eq('id', id);
+      fetchOperators();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al eliminar", description: error.message });
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Entregado': return <Badge className="bg-green-500/20 text-green-400 border-green-500/50"><CheckCircle2 className="w-3 h-3 mr-1"/> Entregado</Badge>;
-      case 'En Ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En Ruta</Badge>;
-      default: return <Badge variant="outline" className="text-orange-400 border-orange-400/50 bg-orange-400/10"><Clock className="w-3 h-3 mr-1"/> Pendiente</Badge>;
     }
   };
 
@@ -171,8 +168,8 @@ export default function Dashboard() {
         </div>
         <nav className="flex-1 space-y-2">
           <Link href="/dashboard">
-            <Button variant="ghost" className="w-full justify-start gap-3 bg-white/10 text-white hover:bg-white/20 mb-2">
-              <Package className="h-5 w-5 text-accent" /> Envíos
+            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-white hover:bg-white/5 mb-2">
+              <Package className="h-5 w-5" /> Envíos
             </Button>
           </Link>
           <Link href="/dashboard/clients">
@@ -181,8 +178,8 @@ export default function Dashboard() {
             </Button>
           </Link>
           <Link href="/dashboard/operators">
-            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-white hover:bg-white/5">
-              <UserCheck className="h-5 w-5" /> Operadores
+            <Button variant="ghost" className="w-full justify-start gap-3 bg-white/10 text-white hover:bg-white/20">
+              <UserCheck className="h-5 w-5 text-accent" /> Operadores
             </Button>
           </Link>
         </nav>
@@ -195,12 +192,12 @@ export default function Dashboard() {
 
       <main className="flex-1 flex flex-col">
         <header className="h-16 bg-white/5 border-b border-white/10 flex items-center justify-between px-8">
-          <h2 className="text-xl font-bold text-white">Gestión de Paquetes</h2>
+          <h2 className="text-xl font-bold text-white">Gestión de Operadores</h2>
           <div className="flex items-center gap-4">
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input 
-                placeholder="Buscar envío..." 
+                placeholder="Buscar operador..." 
                 className="w-full bg-white/5 border border-white/10 rounded-md py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-accent text-white placeholder:text-slate-500" 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -209,35 +206,30 @@ export default function Dashboard() {
             
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-accent text-primary hover:bg-accent/90 font-bold" onClick={() => { setEditingPackage(null); setFormData({ client: '', destiny: '', status: 'Pendiente' }); }}>
-                  <Plus className="h-4 w-4 mr-2" /> Nuevo Envío
+                <Button className="bg-accent text-primary hover:bg-accent/90 font-bold" onClick={() => { setEditingOperator(null); setFormData({ name: '', email: '', phone: '', vehicle: '', status: 'Activo' }); }}>
+                  <Plus className="h-4 w-4 mr-2" /> Nuevo Operador
                 </Button>
               </DialogTrigger>
               <DialogContent className="bg-slate-900 border-white/10 text-white">
                 <DialogHeader>
-                  <DialogTitle className="text-white">{editingPackage ? 'Editar Envío' : 'Registrar Nuevo Paquete'}</DialogTitle>
+                  <DialogTitle className="text-white">{editingOperator ? 'Editar Operador' : 'Registrar Nuevo Operador'}</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="client">Nombre del Cliente</Label>
-                    <Input id="client" value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Juan Pérez" />
+                    <Label htmlFor="name">Nombre Completo</Label>
+                    <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Carlos Rodríguez" />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="destiny">Dirección de Destino</Label>
-                    <Input id="destiny" value={formData.destiny} onChange={(e) => setFormData({...formData, destiny: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Av. Principal 123" />
+                    <Label htmlFor="email">Correo Corporativo</Label>
+                    <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="carlos@solucionex.com" />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="status">Estado</Label>
-                    <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
-                      <SelectTrigger className="bg-white/5 border-white/10">
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/10 text-white">
-                        <SelectItem value="Pendiente">Pendiente</SelectItem>
-                        <SelectItem value="En Ruta">En Ruta</SelectItem>
-                        <SelectItem value="Entregado">Entregado</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="phone">Teléfono de Contacto</Label>
+                    <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="555-0102" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="vehicle">Vehículo Asignado / Placa</Label>
+                    <Input id="vehicle" value={formData.vehicle} onChange={(e) => setFormData({...formData, vehicle: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Van Blanca ABC-123" />
                   </div>
                 </div>
                 <DialogFooter>
@@ -252,38 +244,60 @@ export default function Dashboard() {
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
-              <p>Cargando información...</p>
+              <p>Cargando operadores...</p>
             </div>
-          ) : packages.length === 0 ? (
+          ) : operators.length === 0 ? (
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
-              <AlertCircle className="h-12 w-12 text-slate-500 mb-4" />
-              <h3 className="text-lg font-semibold text-white">Sin paquetes</h3>
-              <p className="text-slate-400">Comienza registrando tu primer envío.</p>
+              <UserCheck className="h-12 w-12 text-slate-500 mb-4" />
+              <h3 className="text-lg font-semibold text-white">Sin operadores registrados</h3>
+              <p className="text-slate-400">Agrega conductores para empezar a asignar envíos.</p>
             </div>
           ) : (
             <div className="bg-white/5 rounded-xl shadow-2xl border border-white/10 overflow-hidden backdrop-blur-sm">
               <Table>
                 <TableHeader className="bg-white/10">
                   <TableRow className="border-white/10 hover:bg-transparent">
-                    <TableHead className="font-bold text-slate-300">Tracking ID</TableHead>
-                    <TableHead className="font-bold text-slate-300">Cliente</TableHead>
-                    <TableHead className="font-bold text-slate-300">Destino</TableHead>
+                    <TableHead className="font-bold text-slate-300">Operador</TableHead>
+                    <TableHead className="font-bold text-slate-300">Contacto</TableHead>
+                    <TableHead className="font-bold text-slate-300">Vehículo</TableHead>
                     <TableHead className="font-bold text-slate-300">Estado</TableHead>
                     <TableHead className="text-right font-bold text-slate-300">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {packages
-                    .filter(p => 
-                      p.client.toLowerCase().includes(search.toLowerCase()) || 
-                      p.tracking.toLowerCase().includes(search.toLowerCase())
+                  {operators
+                    .filter(o => 
+                      o.name.toLowerCase().includes(search.toLowerCase()) || 
+                      o.email.toLowerCase().includes(search.toLowerCase()) ||
+                      o.vehicle.toLowerCase().includes(search.toLowerCase())
                     )
-                    .map((pkg) => (
-                    <TableRow key={pkg.id} className="border-white/10 hover:bg-white/5">
-                      <TableCell className="font-mono font-medium text-accent">{pkg.tracking}</TableCell>
-                      <TableCell className="text-white">{pkg.client}</TableCell>
-                      <TableCell className="text-slate-300">{pkg.destiny}</TableCell>
-                      <TableCell>{getStatusBadge(pkg.status)}</TableCell>
+                    .map((op) => (
+                    <TableRow key={op.id} className="border-white/10 hover:bg-white/5">
+                      <TableCell className="font-medium text-white">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                            <BadgeCheck className="w-4 h-4 text-accent" />
+                          </div>
+                          {op.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col text-xs text-slate-400 gap-1">
+                          <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-accent" /> {op.email}</span>
+                          <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-accent" /> {op.phone}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-300">
+                        <div className="flex items-center gap-2">
+                          <Truck className="w-4 h-4 text-slate-500" />
+                          {op.vehicle}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
+                          {op.status}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -291,8 +305,8 @@ export default function Dashboard() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
                             <DropdownMenuItem className="gap-2 cursor-pointer hover:bg-white/10" onClick={() => {
-                              setEditingPackage(pkg);
-                              setFormData({ client: pkg.client, destiny: pkg.destiny, status: pkg.status });
+                              setEditingOperator(op);
+                              setFormData({ name: op.name, email: op.email, phone: op.phone, vehicle: op.vehicle, status: op.status });
                               setIsDialogOpen(true);
                             }}>
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
@@ -300,7 +314,7 @@ export default function Dashboard() {
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 text-red-400 cursor-pointer hover:bg-red-400/10"
-                              onClick={() => deletePackage(pkg.id)}
+                              onClick={() => deleteOperator(op.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
                             </DropdownMenuItem>

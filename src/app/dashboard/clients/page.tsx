@@ -167,9 +167,11 @@ export default function ClientsPage() {
               <Users className="h-5 w-5 text-accent" /> Clientes
             </Button>
           </Link>
-          <Button variant="ghost" className="w-full justify-start gap-3 text-slate-500 hover:text-white hover:bg-white/5 opacity-50 cursor-not-allowed" disabled>
-            <UserCheck className="h-5 w-5" /> Operadores
-          </Button>
+          <Link href="/dashboard/operators">
+            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-white hover:bg-white/5">
+              <UserCheck className="h-5 w-5" /> Operadores
+            </Button>
+          </Link>
         </nav>
         <div className="pt-6 border-t border-white/10">
           <Button variant="ghost" className="w-full justify-start gap-3 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => router.push('/')}>
