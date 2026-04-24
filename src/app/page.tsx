@@ -20,6 +20,16 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   const handleAuth = async (type: 'login' | 'register') => {
+    // Si no hay configuración real, permitimos entrar al dashboard para ver la UI
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      setLoading(true);
+      setTimeout(() => {
+        setLoading(false);
+        router.push('/dashboard');
+      }, 800);
+      return;
+    }
+
     setLoading(true);
     try {
       if (type === 'login') {
@@ -46,47 +56,47 @@ export default function LoginPage() {
     <main className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center">
-          <div className="bg-primary p-4 rounded-2xl shadow-lg mb-4">
+          <div className="bg-white/10 p-4 rounded-2xl shadow-lg mb-4 backdrop-blur-md">
             <Truck className="h-10 w-10 text-accent" />
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-primary">
+          <h1 className="text-4xl font-extrabold tracking-tight text-white">
             FastDelivery <span className="text-accent">Pro</span>
           </h1>
-          <p className="text-muted-foreground mt-2 font-medium">Logística impulsada por Supabase</p>
+          <p className="text-slate-300 mt-2 font-medium">Logística impulsada por Supabase</p>
         </div>
 
-        <Card className="border-border/50 shadow-xl backdrop-blur-sm bg-card/95">
+        <Card className="border-white/10 shadow-2xl backdrop-blur-xl bg-white/5">
           <CardHeader>
             <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-muted/50">
-                <TabsTrigger value="login">Ingresar</TabsTrigger>
-                <TabsTrigger value="register">Registro</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-white/5 border border-white/10">
+                <TabsTrigger value="login" className="data-[state=active]:bg-accent data-[state=active]:text-primary">Ingresar</TabsTrigger>
+                <TabsTrigger value="register" className="data-[state=active]:bg-accent data-[state=active]:text-primary">Registro</TabsTrigger>
               </TabsList>
               
               <TabsContent value="login" className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email-login">Correo Electrónico</Label>
-                  <Input id="email-login" type="email" placeholder="tu@empresa.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Label htmlFor="email-login" className="text-white">Correo Electrónico</Label>
+                  <Input id="email-login" type="email" placeholder="tu@empresa.com" className="bg-white/5 border-white/10 text-white" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pass-login">Contraseña</Label>
-                  <Input id="pass-login" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <Label htmlFor="pass-login" className="text-white">Contraseña</Label>
+                  <Input id="pass-login" type="password" placeholder="••••••••" className="bg-white/5 border-white/10 text-white" value={password} onChange={(e) => setPassword(e.target.value)} />
                 </div>
-                <Button className="w-full group" disabled={loading} onClick={() => handleAuth('login')}>
+                <Button className="w-full group bg-accent text-primary hover:bg-accent/90" disabled={loading} onClick={() => handleAuth('login')}>
                   {loading ? <Loader2 className="animate-spin" /> : <>Iniciar Sesión <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" /></>}
                 </Button>
               </TabsContent>
 
               <TabsContent value="register" className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email-reg">Correo Electrónico</Label>
-                  <Input id="email-reg" type="email" placeholder="admin@empresa.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Label htmlFor="email-reg" className="text-white">Correo Electrónico</Label>
+                  <Input id="email-reg" type="email" placeholder="admin@empresa.com" className="bg-white/5 border-white/10 text-white" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pass-reg">Contraseña</Label>
-                  <Input id="pass-reg" type="password" placeholder="Mínimo 6 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <Label htmlFor="pass-reg" className="text-white">Contraseña</Label>
+                  <Input id="pass-reg" type="password" placeholder="Mínimo 6 caracteres" className="bg-white/5 border-white/10 text-white" value={password} onChange={(e) => setPassword(e.target.value)} />
                 </div>
-                <Button className="w-full bg-accent text-primary hover:bg-accent/90" disabled={loading} onClick={() => handleAuth('register')}>
+                <Button className="w-full bg-white text-primary hover:bg-white/90" disabled={loading} onClick={() => handleAuth('register')}>
                   {loading ? <Loader2 className="animate-spin" /> : "Crear Empresa"}
                 </Button>
               </TabsContent>
@@ -94,14 +104,14 @@ export default function LoginPage() {
           </CardHeader>
         </Card>
 
-        <div className="grid grid-cols-2 gap-4 mt-8 opacity-60">
-          <div className="flex items-center gap-2 text-xs text-primary justify-center">
+        <div className="grid grid-cols-2 gap-4 mt-8 opacity-40">
+          <div className="flex items-center gap-2 text-xs text-white justify-center">
             <ShieldCheck className="h-4 w-4" />
             <span>Supabase Auth</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-primary justify-center">
+          <div className="flex items-center gap-2 text-xs text-white justify-center">
             <Package className="h-4 w-4" />
-            <span>CRUD en tiempo real</span>
+            <span>Gestión en tiempo real</span>
           </div>
         </div>
       </div>
