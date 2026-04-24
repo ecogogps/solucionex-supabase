@@ -39,7 +39,6 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger,
   DialogFooter
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -104,32 +103,30 @@ export default function ClientsPage() {
       return;
     }
 
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      if (editingClient) {
-        setClients(clients.map(c => c.id === editingClient.id ? { ...c, ...formData } : c));
-      } else {
-        const newClient = { 
-          id: Math.random().toString(), 
-          ...formData, 
-          created_at: new Date().toISOString() 
-        };
-        setClients([newClient, ...clients]);
-      }
-      setIsDialogOpen(false);
-      toast({ title: "Operación exitosa", description: "Cliente guardado localmente (Modo Demo)." });
-      return;
-    }
-
     try {
-      if (editingClient) {
-        const { error } = await supabase.from('clients').update(formData).eq('id', editingClient.id);
-        if (error) throw error;
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        if (editingClient) {
+          setClients(clients.map(c => c.id === editingClient.id ? { ...c, ...formData } : c));
+        } else {
+          const newClient = { 
+            id: Math.random().toString(), 
+            ...formData, 
+            created_at: new Date().toISOString() 
+          };
+          setClients([newClient, ...clients]);
+        }
+        toast({ title: "Guardado", description: "Cliente actualizado localmente." });
       } else {
-        const { error } = await supabase.from('clients').insert([formData]);
-        if (error) throw error;
+        if (editingClient) {
+          const { error } = await supabase.from('clients').update(formData).eq('id', editingClient.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('clients').insert([formData]);
+          if (error) throw error;
+        }
+        fetchClients();
       }
       setIsDialogOpen(false);
-      fetchClients();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al guardar", description: error.message });
     }
@@ -138,6 +135,7 @@ export default function ClientsPage() {
   const deleteClient = async (id: string) => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
       setClients(clients.filter(c => c.id !== id));
+      toast({ title: "Eliminado", description: "Cliente removido exitosamente." });
       return;
     }
 
@@ -147,6 +145,18 @@ export default function ClientsPage() {
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al eliminar", description: error.message });
     }
+  };
+
+  const openNewClientModal = () => {
+    setEditingClient(null);
+    setFormData({ name: '', email: '', phone: '', company: '' });
+    setIsDialogOpen(true);
+  };
+
+  const openEditClientModal = (client: ClientData) => {
+    setEditingClient(client);
+    setFormData({ name: client.name, email: client.email, phone: client.phone, company: client.company || '' });
+    setIsDialogOpen(true);
   };
 
   return (
@@ -194,39 +204,9 @@ export default function ClientsPage() {
               />
             </div>
             
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-accent text-primary hover:bg-accent/90 font-bold" onClick={() => { setEditingClient(null); setFormData({ name: '', email: '', phone: '', company: '' }); }}>
-                  <Plus className="h-4 w-4 mr-2" /> Nuevo Cliente
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-slate-900 border-white/10 text-white">
-                <DialogHeader>
-                  <DialogTitle className="text-white">{editingClient ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Nombre Completo</Label>
-                    <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Juan Pérez" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Correo Electrónico</Label>
-                    <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="juan@correo.com" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone">Teléfono</Label>
-                    <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="555-0101" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="company">Empresa / Referencia</Label>
-                    <Input id="company" value={formData.company} onChange={(e) => setFormData({...formData, company: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Nombre de la empresa" />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold">Guardar</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={openNewClientModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
+              <Plus className="h-4 w-4 mr-2" /> Nuevo Cliente
+            </Button>
           </div>
         </header>
 
@@ -280,16 +260,12 @@ export default function ClientsPage() {
                             <Button variant="ghost" size="icon" className="hover:bg-white/10"><MoreVertical className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
-                            <DropdownMenuItem className="gap-2 cursor-pointer hover:bg-white/10" onClick={() => {
-                              setEditingClient(client);
-                              setFormData({ name: client.name, email: client.email, phone: client.phone, company: client.company || '' });
-                              setIsDialogOpen(true);
-                            }}>
+                            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => openEditClientModal(client)}>
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
-                              className="gap-2 text-red-400 cursor-pointer hover:bg-red-400/10"
+                              className="gap-2 text-red-400 cursor-pointer"
                               onClick={() => deleteClient(client.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
@@ -304,6 +280,38 @@ export default function ClientsPage() {
             </div>
           )}
         </div>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-white">
+                {editingClient ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nombre Completo</Label>
+                <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Juan Pérez" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Correo Electrónico</Label>
+                <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="juan@correo.com" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="phone">Teléfono</Label>
+                <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="555-0101" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="company">Empresa / Referencia</Label>
+                <Input id="company" value={formData.company} onChange={(e) => setFormData({...formData, company: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Nombre de la empresa" />
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="text-slate-400 hover:text-white">Cancelar</Button>
+              <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold">Guardar Cliente</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

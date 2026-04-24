@@ -16,7 +16,6 @@ import {
   Phone,
   Package,
   UserCheck,
-  ShieldCheck,
   BadgeCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,7 +40,6 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger,
   DialogFooter
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -114,32 +112,30 @@ export default function OperatorsPage() {
       return;
     }
 
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      if (editingOperator) {
-        setOperators(operators.map(o => o.id === editingOperator.id ? { ...o, ...formData } : o));
-      } else {
-        const newOp = { 
-          id: Math.random().toString(), 
-          ...formData, 
-          created_at: new Date().toISOString() 
-        };
-        setOperators([newOp, ...operators]);
-      }
-      setIsDialogOpen(false);
-      toast({ title: "Operación exitosa", description: "Operador guardado localmente (Modo Demo)." });
-      return;
-    }
-
     try {
-      if (editingOperator) {
-        const { error } = await supabase.from('operators').update(formData).eq('id', editingOperator.id);
-        if (error) throw error;
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        if (editingOperator) {
+          setOperators(operators.map(o => o.id === editingOperator.id ? { ...o, ...formData } : o));
+        } else {
+          const newOp = { 
+            id: Math.random().toString(), 
+            ...formData, 
+            created_at: new Date().toISOString() 
+          };
+          setOperators([newOp, ...operators]);
+        }
+        toast({ title: "Éxito", description: "Operador actualizado localmente." });
       } else {
-        const { error } = await supabase.from('operators').insert([formData]);
-        if (error) throw error;
+        if (editingOperator) {
+          const { error } = await supabase.from('operators').update(formData).eq('id', editingOperator.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('operators').insert([formData]);
+          if (error) throw error;
+        }
+        fetchOperators();
       }
       setIsDialogOpen(false);
-      fetchOperators();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al guardar", description: error.message });
     }
@@ -148,6 +144,7 @@ export default function OperatorsPage() {
   const deleteOperator = async (id: string) => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
       setOperators(operators.filter(o => o.id !== id));
+      toast({ title: "Eliminado", description: "Operador removido." });
       return;
     }
 
@@ -157,6 +154,18 @@ export default function OperatorsPage() {
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al eliminar", description: error.message });
     }
+  };
+
+  const openNewOperatorModal = () => {
+    setEditingOperator(null);
+    setFormData({ name: '', email: '', phone: '', vehicle: '', status: 'Activo' });
+    setIsDialogOpen(true);
+  };
+
+  const openEditOperatorModal = (op: OperatorData) => {
+    setEditingOperator(op);
+    setFormData({ name: op.name, email: op.email, phone: op.phone, vehicle: op.vehicle, status: op.status });
+    setIsDialogOpen(true);
   };
 
   return (
@@ -204,39 +213,9 @@ export default function OperatorsPage() {
               />
             </div>
             
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-accent text-primary hover:bg-accent/90 font-bold" onClick={() => { setEditingOperator(null); setFormData({ name: '', email: '', phone: '', vehicle: '', status: 'Activo' }); }}>
-                  <Plus className="h-4 w-4 mr-2" /> Nuevo Operador
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-slate-900 border-white/10 text-white">
-                <DialogHeader>
-                  <DialogTitle className="text-white">{editingOperator ? 'Editar Operador' : 'Registrar Nuevo Operador'}</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Nombre Completo</Label>
-                    <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Carlos Rodríguez" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Correo Corporativo</Label>
-                    <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="carlos@solucionex.com" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone">Teléfono de Contacto</Label>
-                    <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="555-0102" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="vehicle">Vehículo Asignado / Placa</Label>
-                    <Input id="vehicle" value={formData.vehicle} onChange={(e) => setFormData({...formData, vehicle: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Van Blanca ABC-123" />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold">Guardar</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={openNewOperatorModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
+              <Plus className="h-4 w-4 mr-2" /> Nuevo Operador
+            </Button>
           </div>
         </header>
 
@@ -304,16 +283,12 @@ export default function OperatorsPage() {
                             <Button variant="ghost" size="icon" className="hover:bg-white/10"><MoreVertical className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
-                            <DropdownMenuItem className="gap-2 cursor-pointer hover:bg-white/10" onClick={() => {
-                              setEditingOperator(op);
-                              setFormData({ name: op.name, email: op.email, phone: op.phone, vehicle: op.vehicle, status: op.status });
-                              setIsDialogOpen(true);
-                            }}>
+                            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => openEditOperatorModal(op)}>
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
-                              className="gap-2 text-red-400 cursor-pointer hover:bg-red-400/10"
+                              className="gap-2 text-red-400 cursor-pointer"
                               onClick={() => deleteOperator(op.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
@@ -328,6 +303,38 @@ export default function OperatorsPage() {
             </div>
           )}
         </div>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-white">
+                {editingOperator ? 'Editar Operador' : 'Registrar Nuevo Operador'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nombre Completo</Label>
+                <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Carlos Rodríguez" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Correo Corporativo</Label>
+                <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="carlos@solucionex.com" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="phone">Teléfono de Contacto</Label>
+                <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="555-0102" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="vehicle">Vehículo Asignado / Placa</Label>
+                <Input id="vehicle" value={formData.vehicle} onChange={(e) => setFormData({...formData, vehicle: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Van Blanca ABC-123" />
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="text-slate-400 hover:text-white">Cancelar</Button>
+              <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold">Guardar Operador</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

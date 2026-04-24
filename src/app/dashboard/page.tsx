@@ -19,7 +19,6 @@ import {
   UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { 
   Table, 
   TableBody, 
@@ -41,10 +40,10 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger,
   DialogFooter
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
@@ -107,34 +106,32 @@ export default function Dashboard() {
       return;
     }
 
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      if (editingPackage) {
-        setPackages(packages.map(p => p.id === editingPackage.id ? { ...p, ...formData } : p));
-      } else {
-        const newPkg = { 
-          id: Math.random().toString(), 
-          tracking: `TRK-${Math.floor(1000 + Math.random() * 9000)}`, 
-          ...formData, 
-          created_at: new Date().toISOString() 
-        };
-        setPackages([newPkg, ...packages]);
-      }
-      setIsDialogOpen(false);
-      toast({ title: "Operación exitosa", description: "Cambios guardados localmente (Modo Demo)." });
-      return;
-    }
-
     try {
-      if (editingPackage) {
-        const { error } = await supabase.from('packages').update(formData).eq('id', editingPackage.id);
-        if (error) throw error;
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        if (editingPackage) {
+          setPackages(packages.map(p => p.id === editingPackage.id ? { ...p, ...formData } : p));
+        } else {
+          const newPkg = { 
+            id: Math.random().toString(), 
+            tracking: `TRK-${Math.floor(1000 + Math.random() * 9000)}`, 
+            ...formData, 
+            created_at: new Date().toISOString() 
+          };
+          setPackages([newPkg, ...packages]);
+        }
+        toast({ title: "Operación exitosa", description: "Cambios guardados localmente." });
       } else {
-        const tracking = `TRK-${Math.floor(1000 + Math.random() * 9000)}`;
-        const { error } = await supabase.from('packages').insert([{ ...formData, tracking }]);
-        if (error) throw error;
+        if (editingPackage) {
+          const { error } = await supabase.from('packages').update(formData).eq('id', editingPackage.id);
+          if (error) throw error;
+        } else {
+          const tracking = `TRK-${Math.floor(1000 + Math.random() * 9000)}`;
+          const { error } = await supabase.from('packages').insert([{ ...formData, tracking }]);
+          if (error) throw error;
+        }
+        fetchPackages();
       }
       setIsDialogOpen(false);
-      fetchPackages();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al guardar", description: error.message });
     }
@@ -143,6 +140,7 @@ export default function Dashboard() {
   const deletePackage = async (id: string) => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
       setPackages(packages.filter(p => p.id !== id));
+      toast({ title: "Eliminado", description: "El envío ha sido removido." });
       return;
     }
 
@@ -152,6 +150,18 @@ export default function Dashboard() {
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al eliminar", description: error.message });
     }
+  };
+
+  const openNewPackageModal = () => {
+    setEditingPackage(null);
+    setFormData({ client: '', destiny: '', status: 'Pendiente' });
+    setIsDialogOpen(true);
+  };
+
+  const openEditPackageModal = (pkg: PackageData) => {
+    setEditingPackage(pkg);
+    setFormData({ client: pkg.client, destiny: pkg.destiny, status: pkg.status });
+    setIsDialogOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -207,44 +217,9 @@ export default function Dashboard() {
               />
             </div>
             
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-accent text-primary hover:bg-accent/90 font-bold" onClick={() => { setEditingPackage(null); setFormData({ client: '', destiny: '', status: 'Pendiente' }); }}>
-                  <Plus className="h-4 w-4 mr-2" /> Nuevo Envío
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-slate-900 border-white/10 text-white">
-                <DialogHeader>
-                  <DialogTitle className="text-white">{editingPackage ? 'Editar Envío' : 'Registrar Nuevo Paquete'}</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="client">Nombre del Cliente</Label>
-                    <Input id="client" value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Juan Pérez" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="destiny">Dirección de Destino</Label>
-                    <Input id="destiny" value={formData.destiny} onChange={(e) => setFormData({...formData, destiny: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Av. Principal 123" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="status">Estado</Label>
-                    <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
-                      <SelectTrigger className="bg-white/5 border-white/10">
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/10 text-white">
-                        <SelectItem value="Pendiente">Pendiente</SelectItem>
-                        <SelectItem value="En Ruta">En Ruta</SelectItem>
-                        <SelectItem value="Entregado">Entregado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold">Guardar</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={openNewPackageModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
+              <Plus className="h-4 w-4 mr-2" /> Nuevo Envío
+            </Button>
           </div>
         </header>
 
@@ -290,16 +265,12 @@ export default function Dashboard() {
                             <Button variant="ghost" size="icon" className="hover:bg-white/10"><MoreVertical className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
-                            <DropdownMenuItem className="gap-2 cursor-pointer hover:bg-white/10" onClick={() => {
-                              setEditingPackage(pkg);
-                              setFormData({ client: pkg.client, destiny: pkg.destiny, status: pkg.status });
-                              setIsDialogOpen(true);
-                            }}>
+                            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => openEditPackageModal(pkg)}>
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
-                              className="gap-2 text-red-400 cursor-pointer hover:bg-red-400/10"
+                              className="gap-2 text-red-400 cursor-pointer"
                               onClick={() => deletePackage(pkg.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
@@ -314,6 +285,43 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-white">
+                {editingPackage ? 'Editar Envío' : 'Registrar Nuevo Paquete'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="client">Nombre del Cliente</Label>
+                <Input id="client" value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Juan Pérez" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="destiny">Dirección de Destino</Label>
+                <Input id="destiny" value={formData.destiny} onChange={(e) => setFormData({...formData, destiny: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Av. Principal 123" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="status">Estado</Label>
+                <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
+                  <SelectTrigger className="bg-white/5 border-white/10">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-white/10 text-white">
+                    <SelectItem value="Pendiente">Pendiente</SelectItem>
+                    <SelectItem value="En Ruta">En Ruta</SelectItem>
+                    <SelectItem value="Entregado">Entregado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="text-slate-400 hover:text-white">Cancelar</Button>
+              <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold">Guardar Cambios</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
