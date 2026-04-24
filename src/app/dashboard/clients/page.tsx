@@ -3,19 +3,19 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Package, 
+  Users, 
   Plus, 
   Search, 
   MoreVertical, 
   LogOut, 
   Truck, 
-  Clock, 
-  CheckCircle2, 
   Trash2,
   Edit2,
   Loader2,
   AlertCircle,
-  Users
+  Mail,
+  Phone,
+  Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { 
   Dialog, 
   DialogContent, 
@@ -44,41 +43,40 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-interface PackageData {
+interface ClientData {
   id: string;
-  tracking: string;
-  client: string;
-  status: string;
-  destiny: string;
+  name: string;
+  email: string;
+  phone: string;
+  company?: string;
   created_at: string;
 }
 
-export default function Dashboard() {
-  const [packages, setPackages] = useState<PackageData[]>([]);
+export default function ClientsPage() {
+  const [clients, setClients] = useState<ClientData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingPackage, setEditingPackage] = useState<PackageData | null>(null);
+  const [editingClient, setEditingClient] = useState<ClientData | null>(null);
   
-  const [formData, setFormData] = useState({ client: '', destiny: '', status: 'Pendiente' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', company: '' });
   
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchPackages();
+    fetchClients();
   }, []);
 
-  const fetchPackages = async () => {
+  const fetchClients = async () => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setPackages([
-        { id: '1', tracking: 'TRK-9901', client: 'Empresa Demo A', destiny: 'Calle Falsa 123', status: 'En Ruta', created_at: new Date().toISOString() },
-        { id: '2', tracking: 'TRK-4422', client: 'Tienda Ejemplo', destiny: 'Av. Libertador 456', status: 'Pendiente', created_at: new Date().toISOString() }
+      setClients([
+        { id: '1', name: 'Juan Pérez', email: 'juan@demo.com', phone: '555-0199', company: 'Logística SA', created_at: new Date().toISOString() },
+        { id: '2', name: 'María García', email: 'mgarcia@tienda.com', phone: '555-0122', company: 'Moda Express', created_at: new Date().toISOString() }
       ]);
       setLoading(false);
       return;
@@ -87,77 +85,67 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('packages')
+        .from('clients')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setPackages(data || []);
+      setClients(data || []);
     } catch (error: any) {
-      console.error("Error cargando paquetes:", error);
+      console.error("Error cargando clientes:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!formData.client || !formData.destiny) {
-      toast({ variant: "destructive", title: "Campos incompletos", description: "Por favor llena todos los campos." });
+    if (!formData.name || !formData.email) {
+      toast({ variant: "destructive", title: "Campos incompletos", description: "El nombre y el correo son obligatorios." });
       return;
     }
 
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      if (editingPackage) {
-        setPackages(packages.map(p => p.id === editingPackage.id ? { ...p, ...formData } : p));
+      if (editingClient) {
+        setClients(clients.map(c => c.id === editingClient.id ? { ...c, ...formData } : c));
       } else {
-        const newPkg = { 
+        const newClient = { 
           id: Math.random().toString(), 
-          tracking: `TRK-${Math.floor(1000 + Math.random() * 9000)}`, 
           ...formData, 
           created_at: new Date().toISOString() 
         };
-        setPackages([newPkg, ...packages]);
+        setClients([newClient, ...clients]);
       }
       setIsDialogOpen(false);
-      toast({ title: "Operación exitosa", description: "Cambios guardados localmente (Modo Demo)." });
+      toast({ title: "Operación exitosa", description: "Cliente guardado localmente (Modo Demo)." });
       return;
     }
 
     try {
-      if (editingPackage) {
-        const { error } = await supabase.from('packages').update(formData).eq('id', editingPackage.id);
+      if (editingClient) {
+        const { error } = await supabase.from('clients').update(formData).eq('id', editingClient.id);
         if (error) throw error;
       } else {
-        const tracking = `TRK-${Math.floor(1000 + Math.random() * 9000)}`;
-        const { error } = await supabase.from('packages').insert([{ ...formData, tracking }]);
+        const { error } = await supabase.from('clients').insert([formData]);
         if (error) throw error;
       }
       setIsDialogOpen(false);
-      fetchPackages();
+      fetchClients();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al guardar", description: error.message });
     }
   };
 
-  const deletePackage = async (id: string) => {
+  const deleteClient = async (id: string) => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setPackages(packages.filter(p => p.id !== id));
+      setClients(clients.filter(c => c.id !== id));
       return;
     }
 
     try {
-      await supabase.from('packages').delete().eq('id', id);
-      fetchPackages();
+      await supabase.from('clients').delete().eq('id', id);
+      fetchClients();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al eliminar", description: error.message });
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Entregado': return <Badge className="bg-green-500/20 text-green-400 border-green-500/50"><CheckCircle2 className="w-3 h-3 mr-1"/> Entregado</Badge>;
-      case 'En Ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En Ruta</Badge>;
-      default: return <Badge variant="outline" className="text-orange-400 border-orange-400/50 bg-orange-400/10"><Clock className="w-3 h-3 mr-1"/> Pendiente</Badge>;
     }
   };
 
@@ -170,13 +158,13 @@ export default function Dashboard() {
         </div>
         <nav className="flex-1 space-y-2">
           <Link href="/dashboard">
-            <Button variant="ghost" className="w-full justify-start gap-3 bg-white/10 text-white hover:bg-white/20 mb-2">
-              <Package className="h-5 w-5 text-accent" /> Envíos
+            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-white hover:bg-white/5 mb-2">
+              <Package className="h-5 w-5" /> Envíos
             </Button>
           </Link>
           <Link href="/dashboard/clients">
-            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-white hover:bg-white/5">
-              <Users className="h-5 w-5" /> Clientes
+            <Button variant="ghost" className="w-full justify-start gap-3 bg-white/10 text-white hover:bg-white/20">
+              <Users className="h-5 w-5 text-accent" /> Clientes
             </Button>
           </Link>
         </nav>
@@ -189,12 +177,12 @@ export default function Dashboard() {
 
       <main className="flex-1 flex flex-col">
         <header className="h-16 bg-white/5 border-b border-white/10 flex items-center justify-between px-8">
-          <h2 className="text-xl font-bold text-white">Gestión de Paquetes</h2>
+          <h2 className="text-xl font-bold text-white">Gestión de Clientes</h2>
           <div className="flex items-center gap-4">
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input 
-                placeholder="Buscar envío..." 
+                placeholder="Buscar cliente..." 
                 className="w-full bg-white/5 border border-white/10 rounded-md py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-accent text-white placeholder:text-slate-500" 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -203,35 +191,30 @@ export default function Dashboard() {
             
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-accent text-primary hover:bg-accent/90 font-bold" onClick={() => { setEditingPackage(null); setFormData({ client: '', destiny: '', status: 'Pendiente' }); }}>
-                  <Plus className="h-4 w-4 mr-2" /> Nuevo Envío
+                <Button className="bg-accent text-primary hover:bg-accent/90 font-bold" onClick={() => { setEditingClient(null); setFormData({ name: '', email: '', phone: '', company: '' }); }}>
+                  <Plus className="h-4 w-4 mr-2" /> Nuevo Cliente
                 </Button>
               </DialogTrigger>
               <DialogContent className="bg-slate-900 border-white/10 text-white">
                 <DialogHeader>
-                  <DialogTitle className="text-white">{editingPackage ? 'Editar Envío' : 'Registrar Nuevo Paquete'}</DialogTitle>
+                  <DialogTitle className="text-white">{editingClient ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="client">Nombre del Cliente</Label>
-                    <Input id="client" value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Juan Pérez" />
+                    <Label htmlFor="name">Nombre Completo</Label>
+                    <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Juan Pérez" />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="destiny">Dirección de Destino</Label>
-                    <Input id="destiny" value={formData.destiny} onChange={(e) => setFormData({...formData, destiny: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Av. Principal 123" />
+                    <Label htmlFor="email">Correo Electrónico</Label>
+                    <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="juan@correo.com" />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="status">Estado</Label>
-                    <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
-                      <SelectTrigger className="bg-white/5 border-white/10">
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/10 text-white">
-                        <SelectItem value="Pendiente">Pendiente</SelectItem>
-                        <SelectItem value="En Ruta">En Ruta</SelectItem>
-                        <SelectItem value="Entregado">Entregado</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="phone">Teléfono</Label>
+                    <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="555-0101" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="company">Empresa / Referencia</Label>
+                    <Input id="company" value={formData.company} onChange={(e) => setFormData({...formData, company: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Nombre de la empresa" />
                   </div>
                 </div>
                 <DialogFooter>
@@ -248,36 +231,44 @@ export default function Dashboard() {
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
               <p>Cargando información...</p>
             </div>
-          ) : packages.length === 0 ? (
+          ) : clients.length === 0 ? (
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
-              <AlertCircle className="h-12 w-12 text-slate-500 mb-4" />
-              <h3 className="text-lg font-semibold text-white">Sin paquetes</h3>
-              <p className="text-slate-400">Comienza registrando tu primer envío.</p>
+              <Users className="h-12 w-12 text-slate-500 mb-4" />
+              <h3 className="text-lg font-semibold text-white">Sin clientes registrados</h3>
+              <p className="text-slate-400">Comienza registrando tu primer cliente.</p>
             </div>
           ) : (
             <div className="bg-white/5 rounded-xl shadow-2xl border border-white/10 overflow-hidden backdrop-blur-sm">
               <Table>
                 <TableHeader className="bg-white/10">
                   <TableRow className="border-white/10 hover:bg-transparent">
-                    <TableHead className="font-bold text-slate-300">Tracking ID</TableHead>
-                    <TableHead className="font-bold text-slate-300">Cliente</TableHead>
-                    <TableHead className="font-bold text-slate-300">Destino</TableHead>
-                    <TableHead className="font-bold text-slate-300">Estado</TableHead>
+                    <TableHead className="font-bold text-slate-300">Nombre</TableHead>
+                    <TableHead className="font-bold text-slate-300">Contacto</TableHead>
+                    <TableHead className="font-bold text-slate-300">Empresa</TableHead>
+                    <TableHead className="font-bold text-slate-300">Fecha Registro</TableHead>
                     <TableHead className="text-right font-bold text-slate-300">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {packages
-                    .filter(p => 
-                      p.client.toLowerCase().includes(search.toLowerCase()) || 
-                      p.tracking.toLowerCase().includes(search.toLowerCase())
+                  {clients
+                    .filter(c => 
+                      c.name.toLowerCase().includes(search.toLowerCase()) || 
+                      c.email.toLowerCase().includes(search.toLowerCase()) ||
+                      (c.company && c.company.toLowerCase().includes(search.toLowerCase()))
                     )
-                    .map((pkg) => (
-                    <TableRow key={pkg.id} className="border-white/10 hover:bg-white/5">
-                      <TableCell className="font-mono font-medium text-accent">{pkg.tracking}</TableCell>
-                      <TableCell className="text-white">{pkg.client}</TableCell>
-                      <TableCell className="text-slate-300">{pkg.destiny}</TableCell>
-                      <TableCell>{getStatusBadge(pkg.status)}</TableCell>
+                    .map((client) => (
+                    <TableRow key={client.id} className="border-white/10 hover:bg-white/5">
+                      <TableCell className="font-medium text-white">{client.name}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col text-xs text-slate-400 gap-1">
+                          <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-accent" /> {client.email}</span>
+                          <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-accent" /> {client.phone}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-300">{client.company || '-'}</TableCell>
+                      <TableCell className="text-slate-400 text-xs">
+                        {new Date(client.created_at).toLocaleDateString()}
+                      </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -285,8 +276,8 @@ export default function Dashboard() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
                             <DropdownMenuItem className="gap-2 cursor-pointer hover:bg-white/10" onClick={() => {
-                              setEditingPackage(pkg);
-                              setFormData({ client: pkg.client, destiny: pkg.destiny, status: pkg.status });
+                              setEditingClient(client);
+                              setFormData({ name: client.name, email: client.email, phone: client.phone, company: client.company || '' });
                               setIsDialogOpen(true);
                             }}>
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
@@ -294,7 +285,7 @@ export default function Dashboard() {
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 text-red-400 cursor-pointer hover:bg-red-400/10"
-                              onClick={() => deletePackage(pkg.id)}
+                              onClick={() => deleteClient(client.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
