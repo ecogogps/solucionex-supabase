@@ -319,7 +319,6 @@ export default function BusinessPortal() {
               <div className="space-y-6">
                 <div className="flex flex-col gap-1">
                   <h2 className="text-2xl font-bold">Mis Paquetes</h2>
-                  <p className="text-slate-400">Historial de tus solicitudes recientes.</p>
                 </div>
                 <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
                   <Package className="h-12 w-12 text-slate-500 mb-4" />
