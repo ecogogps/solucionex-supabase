@@ -14,7 +14,7 @@ import {
   Loader2,
   Mail,
   Phone,
-  ClipboardList,
+  Package,
   UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -171,7 +171,7 @@ export default function CompaniesPage() {
         <nav className="flex-1 space-y-2">
           <Link href="/dashboard">
             <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-white hover:bg-white/5 mb-2">
-              <ClipboardList className="h-5 w-5" /> Pedidos
+              <Package className="h-5 w-5" /> Paquetes
             </Button>
           </Link>
           <Link href="/dashboard/business">

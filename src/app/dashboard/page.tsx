@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  ClipboardList, 
+  Package, 
   Plus, 
   Search, 
   MoreVertical, 
@@ -49,7 +49,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-interface OrderData {
+interface PackageData {
   id: string;
   tracking: string;
   company: string;
@@ -59,11 +59,11 @@ interface OrderData {
 }
 
 export default function Dashboard() {
-  const [orders, setOrders] = useState<OrderData[]>([]);
+  const [packages, setPackages] = useState<PackageData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<OrderData | null>(null);
+  const [editingPackage, setEditingPackage] = useState<PackageData | null>(null);
   
   const [formData, setFormData] = useState({ company: '', destiny: '', status: 'Pendiente' });
   
@@ -71,14 +71,14 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchOrders();
+    fetchPackages();
   }, []);
 
-  const fetchOrders = async () => {
+  const fetchPackages = async () => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setOrders([
-        { id: '1', tracking: 'PED-9901', company: 'Empresa Demo A', destiny: 'Calle Falsa 123', status: 'En Ruta', created_at: new Date().toISOString() },
-        { id: '2', tracking: 'PED-4422', company: 'Tienda Ejemplo', destiny: 'Av. Libertador 456', status: 'Pendiente', created_at: new Date().toISOString() }
+      setPackages([
+        { id: '1', tracking: 'PAQ-9901', company: 'Empresa Demo A', destiny: 'Calle Falsa 123', status: 'En Ruta', created_at: new Date().toISOString() },
+        { id: '2', tracking: 'PAQ-4422', company: 'Tienda Ejemplo', destiny: 'Av. Libertador 456', status: 'Pendiente', created_at: new Date().toISOString() }
       ]);
       setLoading(false);
       return;
@@ -87,14 +87,14 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('orders')
+        .from('packages')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setOrders(data || []);
+      setPackages(data || []);
     } catch (error: any) {
-      console.error("Error cargando pedidos:", error);
+      console.error("Error cargando paquetes:", error);
     } finally {
       setLoading(false);
     }
@@ -108,28 +108,28 @@ export default function Dashboard() {
 
     try {
       if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        if (editingOrder) {
-          setOrders(orders.map(p => p.id === editingOrder.id ? { ...p, ...formData } : p));
+        if (editingPackage) {
+          setPackages(packages.map(p => p.id === editingPackage.id ? { ...p, ...formData } : p));
         } else {
-          const newOrder = { 
+          const newPackage = { 
             id: Math.random().toString(), 
-            tracking: `PED-${Math.floor(1000 + Math.random() * 9000)}`, 
+            tracking: `PAQ-${Math.floor(1000 + Math.random() * 9000)}`, 
             ...formData, 
             created_at: new Date().toISOString() 
           };
-          setOrders([newOrder, ...orders]);
+          setPackages([newPackage, ...packages]);
         }
-        toast({ title: "Operación exitosa", description: "Pedido guardado localmente." });
+        toast({ title: "Operación exitosa", description: "Paquete guardado localmente." });
       } else {
-        if (editingOrder) {
-          const { error } = await supabase.from('orders').update(formData).eq('id', editingOrder.id);
+        if (editingPackage) {
+          const { error } = await supabase.from('packages').update(formData).eq('id', editingPackage.id);
           if (error) throw error;
         } else {
-          const tracking = `PED-${Math.floor(1000 + Math.random() * 9000)}`;
-          const { error } = await supabase.from('orders').insert([{ ...formData, tracking }]);
+          const tracking = `PAQ-${Math.floor(1000 + Math.random() * 9000)}`;
+          const { error } = await supabase.from('packages').insert([{ ...formData, tracking }]);
           if (error) throw error;
         }
-        fetchOrders();
+        fetchPackages();
       }
       setIsDialogOpen(false);
     } catch (error: any) {
@@ -137,30 +137,30 @@ export default function Dashboard() {
     }
   };
 
-  const deleteOrder = async (id: string) => {
+  const deletePackage = async (id: string) => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setOrders(orders.filter(p => p.id !== id));
-      toast({ title: "Eliminado", description: "El pedido ha sido removido." });
+      setPackages(packages.filter(p => p.id !== id));
+      toast({ title: "Eliminado", description: "El paquete ha sido removido." });
       return;
     }
 
     try {
-      await supabase.from('orders').delete().eq('id', id);
-      fetchOrders();
+      await supabase.from('packages').delete().eq('id', id);
+      fetchPackages();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al eliminar", description: error.message });
     }
   };
 
-  const openNewOrderModal = () => {
-    setEditingOrder(null);
+  const openNewPackageModal = () => {
+    setEditingPackage(null);
     setFormData({ company: '', destiny: '', status: 'Pendiente' });
     setIsDialogOpen(true);
   };
 
-  const openEditOrderModal = (order: OrderData) => {
-    setEditingOrder(order);
-    setFormData({ company: order.company, destiny: order.destiny, status: order.status });
+  const openEditPackageModal = (pkg: PackageData) => {
+    setEditingPackage(pkg);
+    setFormData({ company: pkg.company, destiny: pkg.destiny, status: pkg.status });
     setTimeout(() => {
       setIsDialogOpen(true);
     }, 100);
@@ -184,7 +184,7 @@ export default function Dashboard() {
         <nav className="flex-1 space-y-2">
           <Link href="/dashboard">
             <Button variant="ghost" className="w-full justify-start gap-3 bg-white/10 text-white hover:bg-white/20 mb-2">
-              <ClipboardList className="h-5 w-5 text-accent" /> Pedidos
+              <Package className="h-5 w-5 text-accent" /> Paquetes
             </Button>
           </Link>
           <Link href="/dashboard/business">
@@ -207,20 +207,20 @@ export default function Dashboard() {
 
       <main className="flex-1 flex flex-col">
         <header className="h-16 bg-white/5 border-b border-white/10 flex items-center justify-between px-8">
-          <h2 className="text-xl font-bold text-white">Gestión de Pedidos</h2>
+          <h2 className="text-xl font-bold text-white">Gestión de Paquetes</h2>
           <div className="flex items-center gap-4">
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input 
-                placeholder="Buscar pedido..." 
+                placeholder="Buscar paquete..." 
                 className="w-full bg-white/5 border border-white/10 rounded-md py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-accent text-white placeholder:text-slate-500" 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             
-            <Button onClick={openNewOrderModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
-              <Plus className="h-4 w-4 mr-2" /> Nuevo Pedido
+            <Button onClick={openNewPackageModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
+              <Plus className="h-4 w-4 mr-2" /> Nuevo Paquete
             </Button>
           </div>
         </header>
@@ -231,18 +231,18 @@ export default function Dashboard() {
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
               <p>Cargando información...</p>
             </div>
-          ) : orders.length === 0 ? (
+          ) : packages.length === 0 ? (
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
               <AlertCircle className="h-12 w-12 text-slate-500 mb-4" />
-              <h3 className="text-lg font-semibold text-white">Sin pedidos registrados</h3>
-              <p className="text-slate-400">Comienza registrando tu primer pedido.</p>
+              <h3 className="text-lg font-semibold text-white">Sin paquetes registrados</h3>
+              <p className="text-slate-400">Comienza registrando tu primer paquete.</p>
             </div>
           ) : (
             <div className="bg-white/5 rounded-xl shadow-2xl border border-white/10 overflow-hidden backdrop-blur-sm">
               <Table>
                 <TableHeader className="bg-white/10">
                   <TableRow className="border-white/10 hover:bg-transparent">
-                    <TableHead className="font-bold text-slate-300">Pedido ID</TableHead>
+                    <TableHead className="font-bold text-slate-300">ID Paquete</TableHead>
                     <TableHead className="font-bold text-slate-300">Empresa</TableHead>
                     <TableHead className="font-bold text-slate-300">Destino</TableHead>
                     <TableHead className="font-bold text-slate-300">Estado</TableHead>
@@ -250,17 +250,17 @@ export default function Dashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orders
+                  {packages
                     .filter(p => 
                       p.company.toLowerCase().includes(search.toLowerCase()) || 
                       p.tracking.toLowerCase().includes(search.toLowerCase())
                     )
-                    .map((order) => (
-                    <TableRow key={order.id} className="border-white/10 hover:bg-white/5">
-                      <TableCell className="font-mono font-medium text-accent">{order.tracking}</TableCell>
-                      <TableCell className="text-white">{order.company}</TableCell>
-                      <TableCell className="text-slate-300">{order.destiny}</TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
+                    .map((pkg) => (
+                    <TableRow key={pkg.id} className="border-white/10 hover:bg-white/5">
+                      <TableCell className="font-mono font-medium text-accent">{pkg.tracking}</TableCell>
+                      <TableCell className="text-white">{pkg.company}</TableCell>
+                      <TableCell className="text-slate-300">{pkg.destiny}</TableCell>
+                      <TableCell>{getStatusBadge(pkg.status)}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -269,14 +269,14 @@ export default function Dashboard() {
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
                             <DropdownMenuItem 
                               className="gap-2 cursor-pointer" 
-                              onClick={() => openEditOrderModal(order)}
+                              onClick={() => openEditPackageModal(pkg)}
                             >
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 text-red-400 cursor-pointer"
-                              onClick={() => deleteOrder(order.id)}
+                              onClick={() => deletePackage(pkg.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
@@ -302,7 +302,7 @@ export default function Dashboard() {
           <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-white">
-                {editingOrder ? 'Editar Pedido' : 'Registrar Nuevo Pedido'}
+                {editingPackage ? 'Editar Paquete' : 'Registrar Nuevo Paquete'}
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -315,7 +315,7 @@ export default function Dashboard() {
                 <Input id="destiny" value={formData.destiny} onChange={(e) => setFormData({...formData, destiny: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Av. Principal 123" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="status">Estado del Pedido</Label>
+                <Label htmlFor="status">Estado del Paquete</Label>
                 <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
                   <SelectTrigger className="bg-white/5 border-white/10">
                     <SelectValue placeholder="Seleccionar" />
