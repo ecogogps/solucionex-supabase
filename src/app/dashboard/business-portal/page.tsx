@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -465,8 +464,12 @@ export default function BusinessPortal() {
           <canvas ref={canvasRef} className="hidden" />
           <DialogFooter className="flex flex-row justify-center gap-2">
             <Button variant="ghost" onClick={() => setShowCamera(false)}>Cancelar</Button>
-            <Button onClick={takePhoto} disabled={!hasCameraPermission} className="bg-accent text-primary font-bold">
-              Capturar Foto
+            <Button 
+              onClick={takePhoto} 
+              disabled={!hasCameraPermission} 
+              className="bg-accent text-primary font-bold hover:bg-accent"
+            >
+              Capturar
             </Button>
           </DialogFooter>
         </DialogContent>
