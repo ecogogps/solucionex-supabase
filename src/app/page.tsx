@@ -20,10 +20,12 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    // Modo Prototipo: Permitimos el acceso para navegación
+    // Modo Prototipo: Manejo de roles por credenciales
     setTimeout(() => {
       setLoading(false);
-      if (email && password) {
+      if (email === 'empresa@gmail.com' && password === '12345678') {
+        router.push('/dashboard/business-portal');
+      } else if (email && password) {
         router.push('/dashboard');
       } else {
         toast({
@@ -62,7 +64,6 @@ export default function LoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="tu@correo.com" 
                   className="bg-white/5 border-white/10 text-white" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)}
@@ -74,7 +75,6 @@ export default function LoginPage() {
                 <Input 
                   id="password" 
                   type="password" 
-                  placeholder="••••••••" 
                   className="bg-white/5 border-white/10 text-white" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)}
