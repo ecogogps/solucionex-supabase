@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Package, 
@@ -10,9 +11,12 @@ import {
   Send, 
   Loader2,
   Search,
-  CheckCircle2,
   MapPin,
-  Clock
+  Clock,
+  Camera,
+  X,
+  Image as ImageIcon,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +27,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter
+} from '@/components/ui/dialog';
 
 export default function BusinessPortal() {
   const [loading, setLoading] = useState(false);
@@ -39,8 +51,71 @@ export default function BusinessPortal() {
     note: ''
   });
 
+  // Camera states
+  const [showCamera, setShowCamera] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (showCamera) {
+      const getCameraPermission = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Acceso a cámara denegado',
+            description: 'Por favor, habilita los permisos de cámara en tu navegador.',
+          });
+        }
+      };
+      getCameraPermission();
+    } else {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    }
+  }, [showCamera, toast]);
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setCapturedImage(dataUrl);
+        setShowCamera(false);
+      }
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCapturedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '');
@@ -51,12 +126,10 @@ export default function BusinessPortal() {
     e.preventDefault();
     setLoading(true);
 
-    // Simular envío de datos
     setTimeout(() => {
       setLoading(false);
       setIsSearching(true);
       
-      // Simular búsqueda de operador durante 4 segundos
       setTimeout(() => {
         setIsSearching(false);
         setActiveTab('paquetes');
@@ -74,16 +147,15 @@ export default function BusinessPortal() {
           phone: '',
           note: ''
         });
+        setCapturedImage(null);
       }, 4000);
     }, 800);
   };
 
-  // Pantalla de Búsqueda de Operador
   if (isSearching) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-white overflow-hidden">
         <div className="relative mb-8">
-          {/* Círculos de radar animados */}
           <div className="absolute inset-0 rounded-full bg-accent/20 animate-ping" />
           <div className="absolute inset-0 rounded-full bg-accent/10 animate-pulse delay-75" />
           
@@ -120,7 +192,6 @@ export default function BusinessPortal() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row text-white overflow-hidden">
-      {/* Sidebar Desktop */}
       <aside className="hidden lg:flex w-64 bg-black/20 border-r border-white/10 flex-col p-6 shadow-2xl">
         <div className="flex items-center gap-3 mb-10">
           <Truck className="h-8 w-8 text-accent" />
@@ -155,9 +226,7 @@ export default function BusinessPortal() {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 h-screen overflow-y-auto pb-24 lg:pb-8">
-        {/* Header Mobile Only */}
         <header className="lg:hidden flex items-center justify-between p-4 border-b border-white/10 bg-black/10 backdrop-blur-md sticky top-0 z-40">
           <div className="flex items-center gap-2">
             <Truck className="h-6 w-6 text-accent" />
@@ -223,15 +292,60 @@ export default function BusinessPortal() {
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="guia" className="text-slate-300">Guía Nº</Label>
-                        <Input 
-                          id="guia"
-                          className="bg-white/5 border-white/10 text-white" 
-                          value={formData.trackingNumber}
-                          onChange={(e) => setFormData({...formData, trackingNumber: e.target.value})}
-                          required
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="guia" className="text-slate-300">Guía Nº</Label>
+                          <Input 
+                            id="guia"
+                            className="bg-white/5 border-white/10 text-white" 
+                            value={formData.trackingNumber}
+                            onChange={(e) => setFormData({...formData, trackingNumber: e.target.value})}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-slate-300">Imagen de guía emitida</Label>
+                          <div className="flex flex-col gap-2">
+                            {capturedImage ? (
+                              <div className="relative rounded-md overflow-hidden border border-white/10 aspect-video bg-black/20">
+                                <img src={capturedImage} alt="Guía" className="w-full h-full object-contain" />
+                                <button 
+                                  type="button"
+                                  onClick={() => setCapturedImage(null)}
+                                  className="absolute top-2 right-2 bg-red-500/80 p-1 rounded-full text-white hover:bg-red-500"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2">
+                                <Button 
+                                  type="button" 
+                                  variant="outline" 
+                                  className="bg-white/5 border-white/10 h-10 flex-1 text-slate-400 hover:text-white"
+                                  onClick={() => setShowCamera(true)}
+                                >
+                                  <Camera className="mr-2 h-4 w-4" /> Foto
+                                </Button>
+                                <Button 
+                                  type="button" 
+                                  variant="outline" 
+                                  className="bg-white/5 border-white/10 h-10 flex-1 text-slate-400 hover:text-white"
+                                  onClick={() => fileInputRef.current?.click()}
+                                >
+                                  <ImageIcon className="mr-2 h-4 w-4" /> Subir
+                                </Button>
+                                <input 
+                                  type="file" 
+                                  ref={fileInputRef} 
+                                  className="hidden" 
+                                  accept="image/*" 
+                                  onChange={handleFileChange} 
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -329,7 +443,35 @@ export default function BusinessPortal() {
         </div>
       </main>
 
-      {/* Floating Bottom Navbar Mobile */}
+      <Dialog open={showCamera} onOpenChange={setShowCamera}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Capturar Guía</DialogTitle>
+          </DialogHeader>
+          <div className="relative">
+            <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
+            {hasCameraPermission === false && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 p-6 text-center">
+                <Alert variant="destructive" className="max-w-xs">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Acceso Requerido</AlertTitle>
+                  <AlertDescription>
+                    Por favor permite el acceso a la cámara en tu navegador.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+          </div>
+          <canvas ref={canvasRef} className="hidden" />
+          <DialogFooter className="flex flex-row justify-center gap-2">
+            <Button variant="ghost" onClick={() => setShowCamera(false)}>Cancelar</Button>
+            <Button onClick={takePhoto} disabled={!hasCameraPermission} className="bg-accent text-primary font-bold">
+              Capturar Foto
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <nav className="fixed bottom-6 left-6 right-6 h-16 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl flex lg:hidden items-center justify-around z-50 shadow-2xl overflow-hidden px-2">
         <button 
           onClick={() => setActiveTab('solicitud')}
