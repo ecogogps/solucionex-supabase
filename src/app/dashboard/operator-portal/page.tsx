@@ -14,7 +14,12 @@ import {
   MapPin, 
   Phone, 
   Clock, 
-  DollarSign 
+  DollarSign,
+  Info,
+  ChevronRight,
+  FileText,
+  CreditCard,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +27,14 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import Image from 'next/image';
 
 interface PaqueteData {
   id: string;
@@ -35,6 +48,8 @@ interface PaqueteData {
   tiempo_recogida: number;
   empresa_id: string;
   operador_id: string | null;
+  nota?: string;
+  imagen_url?: string;
   created_at: string;
 }
 
@@ -45,6 +60,11 @@ export default function OperatorPortal() {
   const [myDeliveries, setMyDeliveries] = useState<PaqueteData[]>([]);
   const [activeTab, setActiveTab] = useState<'disponibles' | 'mis_entregas'>('disponibles');
   const [rejectedIds, setRejectedIds] = useState<string[]>([]);
+  
+  // Detail Dialog State
+  const [selectedPackage, setSelectedPackage] = useState<PaqueteData | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   
   const router = useRouter();
   const { toast } = useToast();
@@ -99,6 +119,12 @@ export default function OperatorPortal() {
       
       setAvailablePackages(available);
       setMyDeliveries(mine);
+
+      // Update selected package if it's open to refresh data
+      if (selectedPackage) {
+        const updated = data.find(p => p.id === selectedPackage.id);
+        if (updated) setSelectedPackage(updated);
+      }
     } catch (error: any) {
       console.error("Error fetching data:", error);
     } finally {
@@ -110,7 +136,6 @@ export default function OperatorPortal() {
     if (!userId) return;
 
     try {
-      // Actualización atómica: solo si el estado sigue siendo 'buscando_operador'
       const { error } = await supabase
         .from('paquetes')
         .update({ 
@@ -133,12 +158,13 @@ export default function OperatorPortal() {
       toast({
         variant: "destructive",
         title: "Error al aceptar",
-        description: "Es posible que otro operador haya aceptado el pedido hace un segundo.",
+        description: "Es posible que otro operador haya aceptado el pedido.",
       });
     }
   };
 
   const handleUpdateStatus = async (pkgId: string, newStatus: string) => {
+    setUpdatingStatus(true);
     try {
       const { error } = await supabase
         .from('paquetes')
@@ -151,6 +177,11 @@ export default function OperatorPortal() {
         title: "Estado actualizado",
         description: `Pedido marcado como ${newStatus.replace('_', ' ')}.`,
       });
+      
+      if (newStatus === 'entregado') {
+        setIsDetailOpen(false);
+      }
+      
       if (userId) fetchData(userId);
     } catch (error: any) {
       toast({
@@ -158,6 +189,8 @@ export default function OperatorPortal() {
         title: "Error",
         description: "No se pudo actualizar el estado.",
       });
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
@@ -166,6 +199,11 @@ export default function OperatorPortal() {
     toast({
       description: "Pedido ignorado de tu lista.",
     });
+  };
+
+  const openDetails = (pkg: PaqueteData) => {
+    setSelectedPackage(pkg);
+    setIsDetailOpen(true);
   };
 
   const visiblePackages = availablePackages.filter(p => !rejectedIds.includes(p.id));
@@ -266,47 +304,33 @@ export default function OperatorPortal() {
               </div>
             ) : (
               myDeliveries.map((pkg) => (
-                <Card key={pkg.id} className="bg-white/10 border-accent/20">
-                  <CardContent className="p-4 space-y-4">
+                <Card 
+                  key={pkg.id} 
+                  className="bg-white/10 border-accent/20 cursor-pointer active:scale-[0.98] transition-all"
+                  onClick={() => openDetails(pkg)}
+                >
+                  <CardContent className="p-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-accent uppercase tracking-widest">En curso</span>
-                        <span className="text-base font-bold">Guía: {pkg.guia_numero}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="bg-accent/20 p-2 rounded-lg">
+                          <Package className="h-5 w-5 text-accent" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold">Guía: {pkg.guia_numero}</span>
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                            <MapPin className="h-2 w-2" /> {pkg.direccion}
+                          </span>
+                        </div>
                       </div>
-                      <Badge className={cn(
-                        "px-2 py-0.5 text-[10px]",
-                        pkg.estado === 'en_ruta' ? "bg-blue-500/20 text-blue-400" : "bg-orange-500/20 text-orange-400"
-                      )}>
-                        {pkg.estado.toUpperCase()}
-                      </Badge>
-                    </div>
-
-                    <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-2">
-                      <div className="flex items-start gap-2 text-xs">
-                        <MapPin className="h-3 w-3 text-accent shrink-0 mt-0.5" />
-                        <span>{pkg.direccion}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge className={cn(
+                          "px-2 py-0.5 text-[8px] uppercase font-bold",
+                          pkg.estado === 'en_ruta' ? "bg-blue-500/20 text-blue-400" : "bg-orange-500/20 text-orange-400"
+                        )}>
+                          {pkg.estado.replace('_', ' ')}
+                        </Badge>
+                        <ChevronRight className="h-4 w-4 text-slate-500" />
                       </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <Phone className="h-3 w-3 text-accent shrink-0" />
-                        <a href={`tel:${pkg.telefono}`} className="font-bold underline text-accent">{pkg.telefono}</a>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      {pkg.estado === 'pendiente' && (
-                        <Button 
-                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 text-xs"
-                          onClick={() => handleUpdateStatus(pkg.id, 'en_ruta')}
-                        >
-                          Tomar y Salir
-                        </Button>
-                      )}
-                      <Button 
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-9 text-xs"
-                        onClick={() => handleUpdateStatus(pkg.id, 'entregado')}
-                      >
-                        Marcar Entregado
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -315,6 +339,127 @@ export default function OperatorPortal() {
           </div>
         )}
       </main>
+
+      {/* Detail Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5 text-accent" /> Detalles del Paquete
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedPackage && (
+            <div className="space-y-6 py-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-bold">Guía: {selectedPackage.guia_numero}</h3>
+                  <p className="text-xs text-slate-400">{new Date(selectedPackage.created_at).toLocaleString()}</p>
+                </div>
+                <Badge className={cn(
+                  "uppercase",
+                  selectedPackage.estado === 'en_ruta' ? "bg-blue-500/20 text-blue-400" : "bg-orange-500/20 text-orange-400"
+                )}>
+                  {selectedPackage.estado.replace('_', ' ')}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold flex items-center gap-1">
+                    <DollarSign className="w-3 h-3" /> Valor
+                  </span>
+                  <p className="text-lg font-bold text-accent">${selectedPackage.valor_pedido}</p>
+                </div>
+                <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold flex items-center gap-1">
+                    <CreditCard className="w-3 h-3" /> Pago
+                  </span>
+                  <p className="text-sm font-medium capitalize">{selectedPackage.metodo_pago}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-4 w-4 text-accent shrink-0 mt-1" />
+                  <div>
+                    <p className="text-xs text-slate-500 font-bold uppercase">Dirección de Entrega</p>
+                    <p className="text-sm">{selectedPackage.direccion}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 text-accent shrink-0" />
+                  <div>
+                    <p className="text-xs text-slate-500 font-bold uppercase">Teléfono Cliente</p>
+                    <a href={`tel:${selectedPackage.telefono}`} className="text-sm font-bold text-accent underline">
+                      {selectedPackage.telefono}
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Clock className="h-4 w-4 text-accent shrink-0" />
+                  <div>
+                    <p className="text-xs text-slate-500 font-bold uppercase">Tiempo Recogida</p>
+                    <p className="text-sm">{selectedPackage.tiempo_recogida} minutos aprox.</p>
+                  </div>
+                </div>
+
+                {selectedPackage.nota && (
+                  <div className="flex items-start gap-3">
+                    <FileText className="h-4 w-4 text-accent shrink-0 mt-1" />
+                    <div>
+                      <p className="text-xs text-slate-500 font-bold uppercase">Nota / Instrucciones</p>
+                      <p className="text-sm italic text-slate-300">{selectedPackage.nota}</p>
+                    </div>
+                  </div>
+                )}
+
+                {selectedPackage.imagen_url && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-500 font-bold uppercase flex items-center gap-1">
+                      <ImageIcon className="w-3 h-3" /> Imagen de Guía
+                    </p>
+                    <div className="relative aspect-video rounded-lg overflow-hidden border border-white/10 bg-black">
+                      <Image 
+                        src={selectedPackage.imagen_url} 
+                        alt="Imagen Guía" 
+                        fill 
+                        className="object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            {selectedPackage?.estado === 'pendiente' && (
+              <Button 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12"
+                onClick={() => handleUpdateStatus(selectedPackage.id, 'en_ruta')}
+                disabled={updatingStatus}
+              >
+                {updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <Navigation className="mr-2 h-5 w-5" />}
+                Tomar y Salir a Ruta
+              </Button>
+            )}
+            <Button 
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12"
+              onClick={() => selectedPackage && handleUpdateStatus(selectedPackage.id, 'entregado')}
+              disabled={updatingStatus}
+            >
+              {updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
+              Marcar como Entregado
+            </Button>
+            <Button variant="ghost" onClick={() => setIsDetailOpen(false)} className="w-full text-slate-400">
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <nav className="fixed bottom-6 left-6 right-6 h-16 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl flex items-center justify-around z-50 shadow-2xl overflow-hidden px-2">
         <button 
