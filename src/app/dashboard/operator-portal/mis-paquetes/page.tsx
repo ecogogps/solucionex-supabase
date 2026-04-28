@@ -18,7 +18,8 @@ import {
   FileText,
   CreditCard,
   MapPinned,
-  Building2
+  Building2,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
