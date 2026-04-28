@@ -128,47 +128,35 @@ export default function CompaniesPage() {
 
     setIsSaving(true);
     try {
-      if (editingEmpresa) {
-        const { error } = await supabase
-          .from('empresas')
-          .update({
-            nombre: formData.nombre,
-            telefono: formData.telefono,
-            correo: formData.correo,
-            direccion: formData.direccion,
-            tipo: formData.tipo,
-            ruc: formData.ruc,
-            guia_numero: formData.guia_numero,
-            estado: formData.estado
-          })
-          .eq('id', editingEmpresa.id);
-        
-        if (error) throw error;
-        toast({ title: "Actualizado", description: "Datos de la empresa actualizados." });
-      } else {
-        const { data, error } = await supabase.functions.invoke('crear-usuario', {
-          body: {
-            email: formData.correo,
-            password: formData.password,
-            rol: 'empresa',
-            datos: {
-              nombre: formData.nombre,
-              telefono: formData.telefono,
-              correo: formData.correo,
-              direccion: formData.direccion,
-              tipo: formData.tipo,
-              ruc: formData.ruc,
-              guia_numero: formData.guia_numero,
-              estado: formData.estado
-            }
-          }
-        });
+      const payload = {
+        accion: editingEmpresa ? 'actualizar' : 'crear',
+        userId: editingEmpresa?.id,
+        email: formData.correo,
+        password: formData.password || undefined,
+        rol: 'empresa',
+        datos: {
+          nombre: formData.nombre,
+          telefono: formData.telefono,
+          correo: formData.correo,
+          direccion: formData.direccion,
+          tipo: formData.tipo,
+          ruc: formData.ruc,
+          guia_numero: formData.guia_numero,
+          estado: formData.estado
+        }
+      };
 
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+      const { data, error } = await supabase.functions.invoke('crear-usuario', {
+        body: payload
+      });
 
-        toast({ title: "Empresa Registrada", description: "Se ha creado el usuario y el registro de la empresa exitosamente." });
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ 
+        title: editingEmpresa ? "Actualizado" : "Empresa Registrada", 
+        description: editingEmpresa ? "Los datos y credenciales han sido actualizados." : "Se ha creado el usuario y el registro exitosamente." 
+      });
       
       fetchEmpresas();
       setIsDialogOpen(false);
@@ -431,11 +419,10 @@ export default function CompaniesPage() {
                     value={formData.correo} 
                     onChange={(e) => setFormData({...formData, correo: e.target.value})} 
                     className="bg-white/5 border-white/10 focus:ring-accent" 
-                    disabled={!!editingEmpresa}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="password">Contraseña {editingEmpresa && "(No editable)"}</Label>
+                  <Label htmlFor="password">Contraseña {editingEmpresa && "(Nueva p. actualizar)"}</Label>
                   <div className="relative">
                     <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <Input 
@@ -445,7 +432,6 @@ export default function CompaniesPage() {
                       onChange={(e) => setFormData({...formData, password: e.target.value})} 
                       className="bg-white/5 border-white/10 focus:ring-accent pl-10" 
                       placeholder="••••••••"
-                      disabled={!!editingEmpresa}
                     />
                   </div>
                 </div>

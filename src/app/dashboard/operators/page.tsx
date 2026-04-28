@@ -111,7 +111,6 @@ export default function OperatorsPage() {
   };
 
   const handleSave = async () => {
-    // Validaciones solo para nuevos operadores
     if (!editingOperador) {
       if (!formData.nombres || !formData.cedula || !formData.email) {
         toast({ 
@@ -133,43 +132,33 @@ export default function OperatorsPage() {
 
     setIsSaving(true);
     try {
-      if (editingOperador) {
-        const { error } = await supabase
-          .from('operadores')
-          .update({
-            nombres: formData.nombres,
-            telefono: formData.telefono,
-            cedula: formData.cedula,
-            correo: formData.email,
-            tipo: formData.tipo,
-            estado: formData.estado
-          })
-          .eq('id', editingOperador.id);
-        
-        if (error) throw error;
-        toast({ title: "Actualizado", description: "Datos del operador actualizados." });
-      } else {
-        const { data, error } = await supabase.functions.invoke('crear-usuario', {
-          body: {
-            email: formData.email,
-            password: formData.password,
-            rol: 'operador',
-            datos: {
-              nombres: formData.nombres,
-              telefono: formData.telefono,
-              cedula: formData.cedula,
-              correo: formData.email,
-              tipo: formData.tipo,
-              estado: formData.estado
-            }
-          }
-        });
+      const payload = {
+        accion: editingOperador ? 'actualizar' : 'crear',
+        userId: editingOperador?.id,
+        email: formData.email,
+        password: formData.password || undefined,
+        rol: 'operador',
+        datos: {
+          nombres: formData.nombres,
+          telefono: formData.telefono,
+          cedula: formData.cedula,
+          correo: formData.email,
+          tipo: formData.tipo,
+          estado: formData.estado
+        }
+      };
 
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+      const { data, error } = await supabase.functions.invoke('crear-usuario', {
+        body: payload
+      });
 
-        toast({ title: "Operador Registrado", description: "Se ha creado el usuario y el registro del operador exitosamente." });
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ 
+        title: editingOperador ? "Actualizado" : "Operador Registrado", 
+        description: editingOperador ? "Los datos y credenciales han sido actualizados." : "Se ha creado el usuario y el registro exitosamente." 
+      });
       
       fetchOperadores();
       setIsDialogOpen(false);
@@ -408,22 +397,20 @@ export default function OperatorsPage() {
                     placeholder="operador@gmail.com"
                   />
                 </div>
-                {!editingOperador && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="password">Contraseña</Label>
-                    <div className="relative">
-                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                      <Input 
-                        id="password" 
-                        type="password" 
-                        value={formData.password} 
-                        onChange={(e) => setFormData({...formData, password: e.target.value})} 
-                        className="bg-white/5 border-white/10 focus:ring-accent pl-10" 
-                        placeholder="••••••••"
-                      />
-                    </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Contraseña {editingOperador && "(Nueva p. actualizar)"}</Label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <Input 
+                      id="password" 
+                      type="password" 
+                      value={formData.password} 
+                      onChange={(e) => setFormData({...formData, password: e.target.value})} 
+                      className="bg-white/5 border-white/10 focus:ring-accent pl-10" 
+                      placeholder="••••••••"
+                    />
                   </div>
-                )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
