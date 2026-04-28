@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -21,6 +22,13 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
+    // Prioridad a credenciales de prueba para el prototipo
+    if (email === 'empresa@gmail.com' && password === '12345678') {
+      router.push('/dashboard/business-portal');
+      setLoading(false);
+      return;
+    }
+
     try {
       // 1. Intentar iniciar sesión en Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -40,7 +48,7 @@ export default function LoginPage() {
 
         if (profileError) throw profileError;
 
-        // 3. Redirección según rol_tipo
+        // 3. Redirección según rol
         switch (profileData.rol) {
           case 'admin':
             router.push('/dashboard');
@@ -60,18 +68,12 @@ export default function LoginPage() {
         }
       }
     } catch (error: any) {
-      console.error("Login error:", error);
-      
-      // Fallback para prototipo si las credenciales coinciden con el requerimiento anterior
-      if (email === 'empresa@gmail.com' && password === '12345678') {
-        router.push('/dashboard/business-portal');
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error de acceso",
-          description: error.message || "Credenciales incorrectas o problema de conexión.",
-        });
-      }
+      // No logueamos console.error para evitar pantallas de error de NextJS durante desarrollo
+      toast({
+        variant: "destructive",
+        title: "Error de acceso",
+        description: "Credenciales incorrectas o problema de conexión con el servidor.",
+      });
     } finally {
       setLoading(false);
     }
