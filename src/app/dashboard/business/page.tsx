@@ -16,7 +16,8 @@ import {
   Phone,
   Package,
   UserCheck,
-  MapPin
+  MapPin,
+  Key
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,6 +71,7 @@ interface EmpresaData {
 export default function CompaniesPage() {
   const [empresas, setEmpresas] = useState<EmpresaData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEmpresa, setEditingEmpresa] = useState<EmpresaData | null>(null);
@@ -77,6 +79,7 @@ export default function CompaniesPage() {
   const [formData, setFormData] = useState({ 
     nombre: '', 
     correo: '', 
+    password: '',
     telefono: '', 
     direccion: '', 
     tipo: 'ultima_milla' as const, 
@@ -99,17 +102,11 @@ export default function CompaniesPage() {
         .select('*')
         .order('nombre', { ascending: true });
       
-      if (error) {
-        // Fallback para prototipo si la tabla no existe aún
-        setEmpresas([
-          { id: '1', nombre: 'Logística SA', correo: 'contacto@logistica.com', telefono: '555-0199', direccion: 'Calle A', tipo: 'ultima_milla', ruc: '20123456789', estado: 'activo' },
-          { id: '2', nombre: 'Moda Express', correo: 'ventas@moda.com', telefono: '555-0122', direccion: 'Av B', tipo: 'real_time', ruc: '20876543210', estado: 'activo' }
-        ]);
-      } else {
-        setEmpresas(data || []);
-      }
+      if (error) throw error;
+      setEmpresas(data || []);
     } catch (error: any) {
       console.error("Error cargando empresas:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar las empresas." });
     } finally {
       setLoading(false);
     }
@@ -121,44 +118,85 @@ export default function CompaniesPage() {
       return;
     }
 
+    if (!editingEmpresa && !formData.password) {
+      toast({ variant: "destructive", title: "Contraseña requerida", description: "Debes asignar una contraseña para el acceso de la empresa." });
+      return;
+    }
+
+    setIsSaving(true);
     try {
       if (editingEmpresa) {
-        const { error } = await supabase.from('empresas').update(formData).eq('id', editingEmpresa.id);
+        // Solo actualizar datos de la tabla empresa (no auth)
+        const { error } = await supabase
+          .from('empresas')
+          .update({
+            nombre: formData.nombre,
+            telefono: formData.telefono,
+            correo: formData.correo,
+            direccion: formData.direccion,
+            tipo: formData.tipo,
+            ruc: formData.ruc,
+            estado: formData.estado
+          })
+          .eq('id', editingEmpresa.id);
+        
         if (error) throw error;
+        toast({ title: "Actualizado", description: "Datos de la empresa actualizados." });
       } else {
-        const { error } = await supabase.from('empresas').insert([formData]);
+        // Crear usuario + Perfil + Empresa usando la Edge Function
+        const { data, error } = await supabase.functions.invoke('crear-usuario-con-rol', {
+          body: {
+            email: formData.correo,
+            password: formData.password,
+            rol: 'empresa',
+            datos: {
+              nombre: formData.nombre,
+              telefono: formData.telefono,
+              correo: formData.correo,
+              direccion: formData.direccion,
+              tipo: formData.tipo,
+              ruc: formData.ruc,
+              estado: formData.estado
+            }
+          }
+        });
+
         if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        toast({ title: "Empresa Registrada", description: "Se ha creado el usuario y el registro de la empresa exitosamente." });
       }
+      
       fetchEmpresas();
       setIsDialogOpen(false);
-      toast({ title: "Guardado", description: "Empresa actualizada exitosamente." });
     } catch (error: any) {
-      // Para prototipo, si falla Supabase, actualizamos localmente
-      if (editingEmpresa) {
-        setEmpresas(empresas.map(e => e.id === editingEmpresa.id ? { ...e, ...formData } : e));
-      } else {
-        const newEmpresa = { id: Math.random().toString(), ...formData };
-        setEmpresas([newEmpresa, ...empresas]);
-      }
-      setIsDialogOpen(false);
-      toast({ title: "Guardado Local", description: "Se actualizó la vista localmente (Base de datos desconectada)." });
+      console.error("Error al guardar:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al guardar", 
+        description: error.message || "Ocurrió un error inesperado." 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const deleteEmpresa = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar esta empresa? Esto no eliminará el usuario de autenticación automáticamente por seguridad.')) return;
+    
     try {
       const { error } = await supabase.from('empresas').delete().eq('id', id);
       if (error) throw error;
       fetchEmpresas();
+      toast({ title: "Eliminado", description: "Registro eliminado de la tabla empresas." });
     } catch (error: any) {
-      setEmpresas(empresas.filter(e => e.id !== id));
-      toast({ title: "Eliminado", description: "Empresa removida localmente." });
+      toast({ variant: "destructive", title: "Error", description: error.message });
     }
   };
 
   const openNewEmpresaModal = () => {
     setEditingEmpresa(null);
-    setFormData({ nombre: '', correo: '', telefono: '', direccion: '', tipo: 'ultima_milla', ruc: '', estado: 'activo' });
+    setFormData({ nombre: '', correo: '', password: '', telefono: '', direccion: '', tipo: 'ultima_milla', ruc: '', estado: 'activo' });
     setIsDialogOpen(true);
   };
 
@@ -167,6 +205,7 @@ export default function CompaniesPage() {
     setFormData({ 
       nombre: empresa.nombre, 
       correo: empresa.correo, 
+      password: '', // No se edita la clave desde aquí por seguridad
       telefono: empresa.telefono || '', 
       direccion: empresa.direccion || '', 
       tipo: empresa.tipo, 
@@ -339,10 +378,35 @@ export default function CompaniesPage() {
                   <Input id="ruc" value={formData.ruc} onChange={(e) => setFormData({...formData, ruc: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="correo">Correo Electrónico</Label>
-                <Input id="correo" type="email" value={formData.correo} onChange={(e) => setFormData({...formData, correo: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="correo">Correo Electrónico (Login)</Label>
+                  <Input 
+                    id="correo" 
+                    type="email" 
+                    value={formData.correo} 
+                    onChange={(e) => setFormData({...formData, correo: e.target.value})} 
+                    className="bg-white/5 border-white/10 focus:ring-accent" 
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Contraseña {editingEmpresa && "(Dejar en blanco para no cambiar)"}</Label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <Input 
+                      id="password" 
+                      type="password" 
+                      value={formData.password} 
+                      onChange={(e) => setFormData({...formData, password: e.target.value})} 
+                      className="bg-white/5 border-white/10 focus:ring-accent pl-10" 
+                      placeholder="••••••••"
+                      disabled={!!editingEmpresa} // Solo crear en este prototipo, no editar auth
+                    />
+                  </div>
+                </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="telefono">Teléfono</Label>
@@ -380,7 +444,10 @@ export default function CompaniesPage() {
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="text-slate-400 hover:text-white">Cancelar</Button>
-              <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold">Guardar Empresa</Button>
+              <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold" disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                {editingEmpresa ? 'Guardar Cambios' : 'Registrar Empresa'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

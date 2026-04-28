@@ -17,7 +17,8 @@ import {
   Package,
   UserCheck,
   BadgeCheck,
-  CreditCard
+  CreditCard,
+  Key
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,12 +70,15 @@ interface OperadorData {
 export default function OperatorsPage() {
   const [operadores, setOperadores] = useState<OperadorData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOperador, setEditingOperador] = useState<OperadorData | null>(null);
   
   const [formData, setFormData] = useState({ 
     nombres: '', 
+    email: '',
+    password: '',
     telefono: '', 
     cedula: '', 
     tipo: 'clase_b' as const, 
@@ -96,65 +100,96 @@ export default function OperatorsPage() {
         .select('*')
         .order('nombres', { ascending: true });
       
-      if (error) {
-        // Fallback demo
-        setOperadores([
-          { id: '1', nombres: 'Carlos Rodríguez', telefono: '555-0300', cedula: 'V-12345678', tipo: 'clase_b', estado: 'activo' },
-          { id: '2', nombres: 'Ana Martínez', telefono: '555-0450', cedula: 'V-87654321', tipo: 'clase_a', estado: 'activo' }
-        ]);
-      } else {
-        setOperadores(data || []);
-      }
+      if (error) throw error;
+      setOperadores(data || []);
     } catch (error: any) {
       console.error("Error cargando operadores:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los operadores." });
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!formData.nombres || !formData.cedula) {
-      toast({ variant: "destructive", title: "Campos incompletos", description: "Nombre y cédula son obligatorios." });
+    if (!formData.nombres || !formData.cedula || !formData.email) {
+      toast({ variant: "destructive", title: "Campos incompletos", description: "Nombre, cédula y correo son obligatorios." });
       return;
     }
 
+    if (!editingOperador && !formData.password) {
+      toast({ variant: "destructive", title: "Contraseña requerida", description: "Debes asignar una contraseña para el acceso del operador." });
+      return;
+    }
+
+    setIsSaving(true);
     try {
       if (editingOperador) {
-        const { error } = await supabase.from('operadores').update(formData).eq('id', editingOperador.id);
+        const { error } = await supabase
+          .from('operadores')
+          .update({
+            nombres: formData.nombres,
+            telefono: formData.telefono,
+            cedula: formData.cedula,
+            tipo: formData.tipo,
+            estado: formData.estado
+          })
+          .eq('id', editingOperador.id);
+        
         if (error) throw error;
+        toast({ title: "Actualizado", description: "Datos del operador actualizados." });
       } else {
-        const { error } = await supabase.from('operadores').insert([formData]);
+        // Crear usuario + Perfil + Operador usando la Edge Function
+        const { data, error } = await supabase.functions.invoke('crear-usuario-con-rol', {
+          body: {
+            email: formData.email,
+            password: formData.password,
+            rol: 'operador',
+            datos: {
+              nombres: formData.nombres,
+              telefono: formData.telefono,
+              cedula: formData.cedula,
+              tipo: formData.tipo,
+              estado: formData.estado
+            }
+          }
+        });
+
         if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        toast({ title: "Operador Registrado", description: "Se ha creado el usuario y el registro del operador exitosamente." });
       }
+      
       fetchOperadores();
       setIsDialogOpen(false);
-      toast({ title: "Éxito", description: "Operador actualizado correctamente." });
     } catch (error: any) {
-      if (editingOperador) {
-        setOperadores(operadores.map(o => o.id === editingOperador.id ? { ...o, ...formData } : o));
-      } else {
-        const newOp = { id: Math.random().toString(), ...formData };
-        setOperadores([newOp, ...operadores]);
-      }
-      setIsDialogOpen(false);
-      toast({ title: "Guardado Local", description: "Vista actualizada (Base de datos desconectada)." });
+      console.error("Error al guardar:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al guardar", 
+        description: error.message || "Ocurrió un error inesperado." 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const deleteOperador = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este operador? El usuario de autenticación no se eliminará automáticamente.')) return;
+    
     try {
       const { error } = await supabase.from('operadores').delete().eq('id', id);
       if (error) throw error;
       fetchOperadores();
+      toast({ title: "Eliminado", description: "Operador removido exitosamente." });
     } catch (error: any) {
-      setOperadores(operadores.filter(o => o.id !== id));
-      toast({ title: "Eliminado", description: "Operador removido localmente." });
+      toast({ variant: "destructive", title: "Error", description: error.message });
     }
   };
 
   const openNewOperadorModal = () => {
     setEditingOperador(null);
-    setFormData({ nombres: '', telefono: '', cedula: '', tipo: 'clase_b', estado: 'activo' });
+    setFormData({ nombres: '', email: '', password: '', telefono: '', cedula: '', tipo: 'clase_b', estado: 'activo' });
     setIsDialogOpen(true);
   };
 
@@ -162,6 +197,8 @@ export default function OperatorsPage() {
     setEditingOperador(op);
     setFormData({ 
       nombres: op.nombres, 
+      email: '', // No disponible en la tabla operadores directamente en este prototipo
+      password: '',
       telefono: op.telefono || '', 
       cedula: op.cedula, 
       tipo: op.tipo, 
@@ -331,6 +368,37 @@ export default function OperatorsPage() {
                 <Label htmlFor="nombres">Nombres Completos</Label>
                 <Input id="nombres" value={formData.nombres} onChange={(e) => setFormData({...formData, nombres: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
               </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Correo Electrónico (Login)</Label>
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    value={formData.email} 
+                    onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                    className="bg-white/5 border-white/10 focus:ring-accent" 
+                    placeholder="operador@gmail.com"
+                    disabled={!!editingOperador}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Contraseña {editingOperador && "(Solo lectura)"}</Label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <Input 
+                      id="password" 
+                      type="password" 
+                      value={formData.password} 
+                      onChange={(e) => setFormData({...formData, password: e.target.value})} 
+                      className="bg-white/5 border-white/10 focus:ring-accent pl-10" 
+                      placeholder="••••••••"
+                      disabled={!!editingOperador}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="cedula">Cédula</Label>
@@ -371,7 +439,10 @@ export default function OperatorsPage() {
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="text-slate-400 hover:text-white">Cancelar</Button>
-              <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold">Guardar Operador</Button>
+              <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold" disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                {editingOperador ? 'Guardar Cambios' : 'Registrar Operador'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
