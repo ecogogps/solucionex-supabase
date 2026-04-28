@@ -84,24 +84,31 @@ export default function MyPackagesPage() {
     getSession();
   }, [router]);
 
+  // Suscripción en tiempo real
   useEffect(() => {
     if (!userId) return;
 
     const channel = supabase
-      .channel('paquetes_realtime_mis_paquetes')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'paquetes' 
-      }, () => {
-        fetchData(userId);
-      })
+      .channel(`realtime_my_packages_${userId}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'paquetes',
+          filter: `operador_id=eq.${userId}`
+        }, 
+        () => {
+          // Sincronizar toda la lista en tiempo real
+          fetchData(userId);
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, selectedPackage?.id]); // Dependencia del ID seleccionado para asegurar actualización del modal
 
   const fetchData = async (currentUserId: string) => {
     try {
@@ -117,11 +124,18 @@ export default function MyPackagesPage() {
         return;
       }
 
-      setMyDeliveries(data || []);
+      const packages = data || [];
+      setMyDeliveries(packages);
 
+      // CRÍTICO: Si el modal de detalles está abierto, actualizar el paquete seleccionado con los nuevos datos
       if (selectedPackage) {
-        const updated = data?.find(p => p.id === selectedPackage.id);
-        if (updated) setSelectedPackage(updated);
+        const updatedPackage = packages.find(p => p.id === selectedPackage.id);
+        if (updatedPackage) {
+          setSelectedPackage(updatedPackage);
+        } else {
+          // Si ya no está en la lista (ej. entregado por otro proceso), cerrar modal
+          setIsDetailOpen(false);
+        }
       }
     } catch (error: any) {
       console.error("Unexpected error:", error);
@@ -155,6 +169,8 @@ export default function MyPackagesPage() {
         setIsDetailOpen(false);
       }
       
+      // fetchData se llamará automáticamente por el canal de tiempo real, 
+      // pero lo llamamos aquí para feedback inmediato
       if (userId) fetchData(userId);
     } catch (error: any) {
       toast({
@@ -203,7 +219,7 @@ export default function MyPackagesPage() {
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold">Mis Paquetes</h2>
           <p className="text-slate-400 text-sm">
-            Tienes {myDeliveries.length} entregas activas asignadas
+            Tienes {myDeliveries.length} entregas activas
           </p>
         </div>
 
@@ -218,7 +234,6 @@ export default function MyPackagesPage() {
               <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
                 <Navigation className="h-12 w-12 text-slate-500 mb-4" />
                 <h3 className="text-lg font-semibold text-white">Sin rutas activas</h3>
-                <p className="text-slate-400 text-sm mt-2">Acepta un pedido de la pestaña Solicitudes.</p>
               </div>
             ) : (
               myDeliveries.map((pkg) => (
