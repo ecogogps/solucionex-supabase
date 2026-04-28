@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -24,21 +25,29 @@ export default function LoginPage() {
     try {
       // 1. Intentar iniciar sesión en Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: email.trim(),
+        password: password.trim(),
       });
 
       if (authError) throw authError;
 
       if (authData.user) {
         // 2. Consultar el rol en la tabla perfiles
+        // Importante: Si esto falla con "Permission Denied", es por las políticas RLS en Supabase
         const { data: profileData, error: profileError } = await supabase
           .from('perfiles')
           .select('rol')
           .eq('id', authData.user.id)
-          .single();
+          .maybeSingle();
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.error("Error al obtener perfil:", profileError);
+          throw new Error("Error al verificar permisos de acceso.");
+        }
+
+        if (!profileData) {
+          throw new Error("Usuario autenticado pero sin perfil asignado.");
+        }
 
         // 3. Redirección según rol
         switch (profileData.rol) {
@@ -55,15 +64,18 @@ export default function LoginPage() {
             toast({
               variant: "destructive",
               title: "Error de Rol",
-              description: "No se encontró un ambiente asignado para tu rol.",
+              description: "Tu cuenta no tiene un ambiente asignado.",
             });
         }
       }
     } catch (error: any) {
+      console.error("Login detail:", error);
       toast({
         variant: "destructive",
         title: "Error de acceso",
-        description: error.message || "Credenciales incorrectas o problema de conexión.",
+        description: error.message === "Invalid login credentials" 
+          ? "Credenciales incorrectas (verifica email y clave)." 
+          : error.message || "Problema de conexión con el servidor.",
       });
     } finally {
       setLoading(false);
@@ -87,7 +99,7 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-white text-center">Iniciar Sesión</CardTitle>
             <CardDescription className="text-slate-400 text-center">
-              Ingresa tus credenciales para acceder al panel
+              Acceso oficial al sistema
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -100,6 +112,7 @@ export default function LoginPage() {
                   className="bg-white/5 border-white/10 text-white" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ejemplo@gmail.com"
                   required
                 />
               </div>
@@ -111,6 +124,7 @@ export default function LoginPage() {
                   className="bg-white/5 border-white/10 text-white" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
                   required
                 />
               </div>
