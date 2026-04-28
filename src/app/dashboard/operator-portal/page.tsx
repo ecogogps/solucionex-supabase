@@ -118,7 +118,7 @@ export default function SolicitudesPage() {
         description: `El paquete ${pkg.guia_numero} ha sido añadido a tus rutas.`,
       });
       
-      router.push('/dashboard/operator-portal/mis-paquetes');
+      router.push('/dashboard/operator-portal/my-packages');
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -243,15 +243,15 @@ export default function SolicitudesPage() {
         </button>
 
         <button 
-          onClick={() => router.push('/dashboard/operator-portal/mis-paquetes')}
+          onClick={() => router.push('/dashboard/operator-portal/my-packages')}
           className={cn(
             "flex flex-col items-center justify-center gap-1 w-full h-full transition-all relative",
-            pathname === '/dashboard/operator-portal/mis-paquetes' ? "text-accent" : "text-slate-400"
+            pathname === '/dashboard/operator-portal/my-packages' ? "text-accent" : "text-slate-400"
           )}
         >
           <ClipboardCheck className="h-5 w-5" />
           <span className="text-[10px] font-bold">Mis Paquetes</span>
-          {pathname === '/dashboard/operator-portal/mis-paquetes' && <div className="absolute top-0 w-8 h-1 bg-accent rounded-b-full shadow-[0_0_10px_rgba(0,255,255,0.5)]" />}
+          {pathname === '/dashboard/operator-portal/my-packages' && <div className="absolute top-0 w-8 h-1 bg-accent rounded-b-full shadow-[0_0_10px_rgba(0,255,255,0.5)]" />}
         </button>
       </nav>
     </div>
