@@ -15,7 +15,8 @@ import {
   Camera,
   X,
   Image as ImageIcon,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,11 +35,27 @@ import {
   DialogTitle, 
   DialogFooter
 } from '@/components/ui/dialog';
+import { supabase } from '@/lib/supabase';
+import { Badge } from '@/components/ui/badge';
+
+interface PaqueteData {
+  id: string;
+  guia_numero: string;
+  tipo: string;
+  estado: string;
+  direccion: string;
+  valor_pedido: number;
+  created_at: string;
+}
 
 export default function BusinessPortal() {
   const [loading, setLoading] = useState(false);
+  const [fetchingPackages, setFetchingPackages] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState<'solicitud' | 'paquetes'>('solicitud');
+  const [misPaquetes, setMisPaquetes] = useState<PaqueteData[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     type: '',
     pickupTime: '',
@@ -60,6 +77,42 @@ export default function BusinessPortal() {
 
   const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setUserId(session.user.id);
+      } else {
+        router.push('/');
+      }
+    };
+    getSession();
+  }, [router]);
+
+  useEffect(() => {
+    if (activeTab === 'paquetes' && userId) {
+      fetchMisPaquetes();
+    }
+  }, [activeTab, userId]);
+
+  const fetchMisPaquetes = async () => {
+    setFetchingPackages(true);
+    try {
+      const { data, error } = await supabase
+        .from('paquetes')
+        .select('*')
+        .eq('empresa_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMisPaquetes(data || []);
+    } catch (error: any) {
+      console.error("Error fetching packages:", error);
+    } finally {
+      setFetchingPackages(false);
+    }
+  };
 
   useEffect(() => {
     if (showCamera) {
@@ -88,6 +141,21 @@ export default function BusinessPortal() {
       }
     }
   }, [showCamera, toast]);
+
+  const base64ToBlob = (base64: string, contentType: string) => {
+    const byteCharacters = atob(base64.split(',')[1]);
+    const byteArrays = [];
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    return new Blob(byteArrays, { type: contentType });
+  };
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -121,20 +189,60 @@ export default function BusinessPortal() {
     setFormData({ ...formData, phone: value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId) return;
+    
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      let imageUrl = null;
+
+      // 1. Subir imagen si existe
+      if (capturedImage) {
+        const blob = base64ToBlob(capturedImage, 'image/jpeg');
+        const fileName = `images/guia-${Date.now()}.jpg`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('paquetes')
+          .upload(fileName, blob);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('paquetes')
+          .getPublicUrl(fileName);
+        
+        imageUrl = publicUrl;
+      }
+
+      // 2. Insertar en tabla paquetes
+      const { error: insertError } = await supabase
+        .from('paquetes')
+        .insert([{
+          empresa_id: userId,
+          tipo: formData.type,
+          tiempo_recogida: parseInt(formData.pickupTime),
+          guia_numero: formData.trackingNumber,
+          imagen_url: imageUrl,
+          valor_pedido: parseFloat(formData.orderValue),
+          metodo_pago: formData.paymentMethod,
+          direccion: formData.address,
+          telefono: formData.phone,
+          nota: formData.note,
+          estado: 'buscando_operador'
+        }]);
+
+      if (insertError) throw insertError;
+
       setIsSearching(true);
       
+      // Simular tiempo de búsqueda de operador para efecto visual
       setTimeout(() => {
         setIsSearching(false);
         setActiveTab('paquetes');
         toast({
           title: "Solicitud registrada",
-          description: `El paquete ${formData.trackingNumber} ha sido procesado.`,
+          description: `El paquete ${formData.trackingNumber} ha sido procesado y se está buscando un operador.`,
         });
         setFormData({
           type: '',
@@ -148,7 +256,26 @@ export default function BusinessPortal() {
         });
         setCapturedImage(null);
       }, 4000);
-    }, 800);
+
+    } catch (error: any) {
+      console.error("Error al enviar solicitud:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "No se pudo registrar la solicitud."
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'entregado': return <Badge className="bg-green-500/20 text-green-400 border-green-500/50"><CheckCircle2 className="w-3 h-3 mr-1"/> Entregado</Badge>;
+      case 'en_ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En Ruta</Badge>;
+      case 'buscando_operador': return <Badge variant="outline" className="text-accent border-accent/50 bg-accent/10"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Buscando</Badge>;
+      default: return <Badge variant="outline" className="text-orange-400 border-orange-400/50 bg-orange-400/10"><Clock className="w-3 h-3 mr-1"/> Pendiente</Badge>;
+    }
   };
 
   if (isSearching) {
@@ -261,7 +388,7 @@ export default function BusinessPortal() {
                             required
                           >
                             <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                              <SelectValue placeholder="" />
+                              <SelectValue placeholder="Seleccionar tamaño" />
                             </SelectTrigger>
                             <SelectContent className="bg-slate-900 border-white/10 text-white">
                               <SelectItem value="pequeño">Pequeño</SelectItem>
@@ -279,7 +406,7 @@ export default function BusinessPortal() {
                             required
                           >
                             <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                              <SelectValue placeholder="" />
+                              <SelectValue placeholder="Tiempo estimado" />
                             </SelectTrigger>
                             <SelectContent className="bg-slate-900 border-white/10 text-white">
                               <SelectItem value="5">5 minutos</SelectItem>
@@ -299,6 +426,7 @@ export default function BusinessPortal() {
                             className="bg-white/5 border-white/10 text-white" 
                             value={formData.trackingNumber}
                             onChange={(e) => setFormData({...formData, trackingNumber: e.target.value})}
+                            placeholder="Ej: GU-001"
                             required
                           />
                         </div>
@@ -432,10 +560,44 @@ export default function BusinessPortal() {
                 <div className="flex flex-col gap-1">
                   <h2 className="text-2xl font-bold">Mis Paquetes</h2>
                 </div>
-                <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
-                  <Package className="h-12 w-12 text-slate-500 mb-4" />
-                  <h3 className="text-lg font-semibold text-white">Sin paquetes registrados</h3>
-                </div>
+                {fetchingPackages ? (
+                  <div className="flex flex-col items-center justify-center p-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-accent mb-4" />
+                    <p className="text-slate-400">Cargando tus paquetes...</p>
+                  </div>
+                ) : misPaquetes.length === 0 ? (
+                  <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
+                    <Package className="h-12 w-12 text-slate-500 mb-4" />
+                    <h3 className="text-lg font-semibold text-white">Sin paquetes registrados</h3>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {misPaquetes.map((pkg) => (
+                      <Card key={pkg.id} className="bg-white/5 border-white/10">
+                        <CardContent className="p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="bg-accent/10 p-3 rounded-lg border border-accent/20">
+                              <Package className="h-6 w-6 text-accent" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-white">Guía: {pkg.guia_numero}</p>
+                              <p className="text-xs text-slate-400 truncate max-w-[150px] md:max-w-[300px]">
+                                {pkg.direccion}
+                              </p>
+                              <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">
+                                {new Date(pkg.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                             {getStatusBadge(pkg.estado)}
+                             <p className="text-sm font-bold text-accent">${pkg.valor_pedido}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -501,7 +663,10 @@ export default function BusinessPortal() {
         </button>
 
         <button 
-          onClick={() => router.push('/')}
+          onClick={() => {
+            supabase.auth.signOut();
+            router.push('/');
+          }}
           className="flex flex-col items-center justify-center gap-1 w-full h-full text-red-400 active:bg-red-500/10 transition-colors"
         >
           <LogOut className="h-5 w-5" />
