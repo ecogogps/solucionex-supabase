@@ -15,7 +15,8 @@ import {
   Mail,
   Phone,
   Package,
-  UserCheck
+  UserCheck,
+  MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,55 +42,72 @@ import {
   DialogTitle, 
   DialogFooter
 } from '@/components/ui/dialog';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-interface CompanyData {
+interface EmpresaData {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  legal_id?: string;
-  created_at: string;
+  nombre: string;
+  correo: string;
+  telefono: string;
+  direccion: string;
+  tipo: 'ultima_milla' | 'real_time';
+  ruc: string;
+  estado: 'activo' | 'inactivo';
+  created_at?: string;
 }
 
 export default function CompaniesPage() {
-  const [companies, setCompanies] = useState<CompanyData[]>([]);
+  const [empresas, setEmpresas] = useState<EmpresaData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<CompanyData | null>(null);
+  const [editingEmpresa, setEditingEmpresa] = useState<EmpresaData | null>(null);
   
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', legal_id: '' });
+  const [formData, setFormData] = useState({ 
+    nombre: '', 
+    correo: '', 
+    telefono: '', 
+    direccion: '', 
+    tipo: 'ultima_milla' as const, 
+    ruc: '', 
+    estado: 'activo' as const 
+  });
   
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchCompanies();
+    fetchEmpresas();
   }, []);
 
-  const fetchCompanies = async () => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setCompanies([
-        { id: '1', name: 'Logística SA', email: 'contacto@logistica.com', phone: '555-0199', legal_id: '20123456789', created_at: new Date().toISOString() },
-        { id: '2', name: 'Moda Express', email: 'ventas@moda.com', phone: '555-0122', legal_id: '20876543210', created_at: new Date().toISOString() }
-      ]);
-      setLoading(false);
-      return;
-    }
-
+  const fetchEmpresas = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('companies')
+        .from('empresas')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('nombre', { ascending: true });
       
-      if (error) throw error;
-      setCompanies(data || []);
+      if (error) {
+        // Fallback para prototipo si la tabla no existe aún
+        setEmpresas([
+          { id: '1', nombre: 'Logística SA', correo: 'contacto@logistica.com', telefono: '555-0199', direccion: 'Calle A', tipo: 'ultima_milla', ruc: '20123456789', estado: 'activo' },
+          { id: '2', nombre: 'Moda Express', correo: 'ventas@moda.com', telefono: '555-0122', direccion: 'Av B', tipo: 'real_time', ruc: '20876543210', estado: 'activo' }
+        ]);
+      } else {
+        setEmpresas(data || []);
+      }
     } catch (error: any) {
       console.error("Error cargando empresas:", error);
     } finally {
@@ -98,64 +116,63 @@ export default function CompaniesPage() {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.email) {
+    if (!formData.nombre || !formData.correo) {
       toast({ variant: "destructive", title: "Campos incompletos", description: "El nombre y el correo son obligatorios." });
       return;
     }
 
     try {
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        if (editingCompany) {
-          setCompanies(companies.map(c => c.id === editingCompany.id ? { ...c, ...formData } : c));
-        } else {
-          const newCompany = { 
-            id: Math.random().toString(), 
-            ...formData, 
-            created_at: new Date().toISOString() 
-          };
-          setCompanies([newCompany, ...companies]);
-        }
-        toast({ title: "Guardado", description: "Empresa actualizada localmente." });
+      if (editingEmpresa) {
+        const { error } = await supabase.from('empresas').update(formData).eq('id', editingEmpresa.id);
+        if (error) throw error;
       } else {
-        if (editingCompany) {
-          const { error } = await supabase.from('companies').update(formData).eq('id', editingCompany.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase.from('companies').insert([formData]);
-          if (error) throw error;
-        }
-        fetchCompanies();
+        const { error } = await supabase.from('empresas').insert([formData]);
+        if (error) throw error;
+      }
+      fetchEmpresas();
+      setIsDialogOpen(false);
+      toast({ title: "Guardado", description: "Empresa actualizada exitosamente." });
+    } catch (error: any) {
+      // Para prototipo, si falla Supabase, actualizamos localmente
+      if (editingEmpresa) {
+        setEmpresas(empresas.map(e => e.id === editingEmpresa.id ? { ...e, ...formData } : e));
+      } else {
+        const newEmpresa = { id: Math.random().toString(), ...formData };
+        setEmpresas([newEmpresa, ...empresas]);
       }
       setIsDialogOpen(false);
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error al guardar", description: error.message });
+      toast({ title: "Guardado Local", description: "Se actualizó la vista localmente (Base de datos desconectada)." });
     }
   };
 
-  const deleteCompany = async (id: string) => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setCompanies(companies.filter(c => c.id !== id));
-      toast({ title: "Eliminado", description: "Empresa removida exitosamente." });
-      return;
-    }
-
+  const deleteEmpresa = async (id: string) => {
     try {
-      await supabase.from('companies').delete().eq('id', id);
-      fetchCompanies();
+      const { error } = await supabase.from('empresas').delete().eq('id', id);
+      if (error) throw error;
+      fetchEmpresas();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error al eliminar", description: error.message });
+      setEmpresas(empresas.filter(e => e.id !== id));
+      toast({ title: "Eliminado", description: "Empresa removida localmente." });
     }
   };
 
-  const openNewCompanyModal = () => {
-    setEditingCompany(null);
-    setFormData({ name: '', email: '', phone: '', legal_id: '' });
+  const openNewEmpresaModal = () => {
+    setEditingEmpresa(null);
+    setFormData({ nombre: '', correo: '', telefono: '', direccion: '', tipo: 'ultima_milla', ruc: '', estado: 'activo' });
     setIsDialogOpen(true);
   };
 
-  const openEditCompanyModal = (company: CompanyData) => {
-    setEditingCompany(company);
-    setFormData({ name: company.name, email: company.email, phone: company.phone, legal_id: company.legal_id || '' });
+  const openEditEmpresaModal = (empresa: EmpresaData) => {
+    setEditingEmpresa(empresa);
+    setFormData({ 
+      nombre: empresa.nombre, 
+      correo: empresa.correo, 
+      telefono: empresa.telefono || '', 
+      direccion: empresa.direccion || '', 
+      tipo: empresa.tipo, 
+      ruc: empresa.ruc || '', 
+      estado: empresa.estado 
+    });
     setTimeout(() => {
       setIsDialogOpen(true);
     }, 100);
@@ -206,7 +223,7 @@ export default function CompaniesPage() {
               />
             </div>
             
-            <Button onClick={openNewCompanyModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
+            <Button onClick={openNewEmpresaModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
               <Plus className="h-4 w-4 mr-2" /> Nueva Empresa
             </Button>
           </div>
@@ -218,7 +235,7 @@ export default function CompaniesPage() {
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
               <p>Cargando información...</p>
             </div>
-          ) : companies.length === 0 ? (
+          ) : empresas.length === 0 ? (
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
               <Building2 className="h-12 w-12 text-slate-500 mb-4" />
               <h3 className="text-lg font-semibold text-white">Sin empresas registradas</h3>
@@ -229,31 +246,43 @@ export default function CompaniesPage() {
               <Table>
                 <TableHeader className="bg-white/10">
                   <TableRow className="border-white/10 hover:bg-transparent">
-                    <TableHead className="font-bold text-slate-300">Nombre de Empresa</TableHead>
+                    <TableHead className="font-bold text-slate-300">Empresa</TableHead>
                     <TableHead className="font-bold text-slate-300">Contacto</TableHead>
                     <TableHead className="font-bold text-slate-300">RUC</TableHead>
-                    <TableHead className="font-bold text-slate-300">Registro</TableHead>
+                    <TableHead className="font-bold text-slate-300">Tipo / Estado</TableHead>
                     <TableHead className="text-right font-bold text-slate-300">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {companies
-                    .filter(c => 
-                      c.name.toLowerCase().includes(search.toLowerCase()) || 
-                      c.email.toLowerCase().includes(search.toLowerCase())
+                  {empresas
+                    .filter(e => 
+                      e.nombre.toLowerCase().includes(search.toLowerCase()) || 
+                      e.correo.toLowerCase().includes(search.toLowerCase())
                     )
-                    .map((company) => (
-                    <TableRow key={company.id} className="border-white/10 hover:bg-white/5">
-                      <TableCell className="font-medium text-white">{company.name}</TableCell>
+                    .map((empresa) => (
+                    <TableRow key={empresa.id} className="border-white/10 hover:bg-white/5">
                       <TableCell>
-                        <div className="flex flex-col text-xs text-slate-400 gap-1">
-                          <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-accent" /> {company.email}</span>
-                          <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-accent" /> {company.phone}</span>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-white">{empresa.nombre}</span>
+                          <span className="text-[10px] text-slate-500 flex items-center gap-1"><MapPin className="w-2 h-2" /> {empresa.direccion}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-slate-300">{company.legal_id || '-'}</TableCell>
-                      <TableCell className="text-slate-400 text-xs">
-                        {new Date(company.created_at).toLocaleDateString()}
+                      <TableCell>
+                        <div className="flex flex-col text-xs text-slate-400 gap-1">
+                          <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-accent" /> {empresa.correo}</span>
+                          <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-accent" /> {empresa.telefono}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-300 font-mono text-xs">{empresa.ruc || '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className="w-fit text-[10px] border-white/10 text-slate-300">
+                            {empresa.tipo === 'ultima_milla' ? 'Última Milla' : 'Real Time'}
+                          </Badge>
+                          <Badge className={empresa.estado === 'activo' ? 'bg-green-500/20 text-green-400 border-green-500/50 w-fit' : 'bg-red-500/20 text-red-400 border-red-500/50 w-fit'}>
+                            {empresa.estado}
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -263,14 +292,14 @@ export default function CompaniesPage() {
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
                             <DropdownMenuItem 
                               className="gap-2 cursor-pointer" 
-                              onClick={() => openEditCompanyModal(company)}
+                              onClick={() => openEditEmpresaModal(empresa)}
                             >
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 text-red-400 cursor-pointer"
-                              onClick={() => deleteCompany(company.id)}
+                              onClick={() => deleteEmpresa(empresa.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
@@ -296,25 +325,57 @@ export default function CompaniesPage() {
           <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-white">
-                {editingCompany ? 'Editar Empresa' : 'Registrar Nueva Empresa'}
+                {editingEmpresa ? 'Editar Empresa' : 'Registrar Nueva Empresa'}
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Nombre de la Empresa</Label>
-                <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Logística SA" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="nombre">Nombre</Label>
+                  <Input id="nombre" value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="ruc">RUC</Label>
+                  <Input id="ruc" value={formData.ruc} onChange={(e) => setFormData({...formData, ruc: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
+                </div>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">Correo Corporativo</Label>
-                <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="admin@empresa.com" />
+                <Label htmlFor="correo">Correo Electrónico</Label>
+                <Input id="correo" type="email" value={formData.correo} onChange={(e) => setFormData({...formData, correo: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="telefono">Teléfono</Label>
+                  <Input id="telefono" value={formData.telefono} onChange={(e) => setFormData({...formData, telefono: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Tipo de Empresa</Label>
+                  <Select value={formData.tipo} onValueChange={(v: any) => setFormData({...formData, tipo: v})}>
+                    <SelectTrigger className="bg-white/5 border-white/10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-white/10 text-white">
+                      <SelectItem value="ultima_milla">Última Milla</SelectItem>
+                      <SelectItem value="real_time">Real Time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="phone">Teléfono Central</Label>
-                <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="555-0101" />
+                <Label htmlFor="direccion">Dirección Fiscal</Label>
+                <Input id="direccion" value={formData.direccion} onChange={(e) => setFormData({...formData, direccion: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="legal_id">RUC</Label>
-                <Input id="legal_id" value={formData.legal_id} onChange={(e) => setFormData({...formData, legal_id: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: 20123456789" />
+                <Label>Estado</Label>
+                <Select value={formData.estado} onValueChange={(v: any) => setFormData({...formData, estado: v})}>
+                  <SelectTrigger className="bg-white/5 border-white/10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-white/10 text-white">
+                    <SelectItem value="activo">Activo</SelectItem>
+                    <SelectItem value="inactivo">Inactivo</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">

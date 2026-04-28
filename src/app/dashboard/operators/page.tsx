@@ -16,7 +16,8 @@ import {
   Phone,
   Package,
   UserCheck,
-  BadgeCheck
+  BadgeCheck,
+  CreditCard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,63 +43,68 @@ import {
   DialogTitle, 
   DialogFooter
 } from '@/components/ui/dialog';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-interface OperatorData {
+interface OperadorData {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  vehicle: string;
-  status: 'Activo' | 'Inactivo';
-  created_at: string;
+  nombres: string;
+  telefono: string;
+  cedula: string;
+  tipo: 'clase_a' | 'clase_b' | 'clase_f';
+  estado: 'activo' | 'inactivo';
+  created_at?: string;
 }
 
 export default function OperatorsPage() {
-  const [operators, setOperators] = useState<OperatorData[]>([]);
+  const [operadores, setOperadores] = useState<OperadorData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingOperator, setEditingOperator] = useState<OperatorData | null>(null);
+  const [editingOperador, setEditingOperador] = useState<OperadorData | null>(null);
   
   const [formData, setFormData] = useState({ 
-    name: '', 
-    email: '', 
-    phone: '', 
-    vehicle: '', 
-    status: 'Activo' as const 
+    nombres: '', 
+    telefono: '', 
+    cedula: '', 
+    tipo: 'clase_b' as const, 
+    estado: 'activo' as const 
   });
   
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchOperators();
+    fetchOperadores();
   }, []);
 
-  const fetchOperators = async () => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setOperators([
-        { id: '1', name: 'Carlos Rodríguez', email: 'carlos@solucionex.com', phone: '555-0300', vehicle: 'Van Blanca (ABC-123)', status: 'Activo', created_at: new Date().toISOString() },
-        { id: '2', name: 'Ana Martínez', email: 'ana.m@solucionex.com', phone: '555-0450', vehicle: 'Moto Express (XYZ-987)', status: 'Activo', created_at: new Date().toISOString() }
-      ]);
-      setLoading(false);
-      return;
-    }
-
+  const fetchOperadores = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('operators')
+        .from('operadores')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('nombres', { ascending: true });
       
-      if (error) throw error;
-      setOperators(data || []);
+      if (error) {
+        // Fallback demo
+        setOperadores([
+          { id: '1', nombres: 'Carlos Rodríguez', telefono: '555-0300', cedula: 'V-12345678', tipo: 'clase_b', estado: 'activo' },
+          { id: '2', nombres: 'Ana Martínez', telefono: '555-0450', cedula: 'V-87654321', tipo: 'clase_a', estado: 'activo' }
+        ]);
+      } else {
+        setOperadores(data || []);
+      }
     } catch (error: any) {
       console.error("Error cargando operadores:", error);
     } finally {
@@ -107,64 +113,60 @@ export default function OperatorsPage() {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.email || !formData.vehicle) {
-      toast({ variant: "destructive", title: "Campos incompletos", description: "Nombre, correo y vehículo son obligatorios." });
+    if (!formData.nombres || !formData.cedula) {
+      toast({ variant: "destructive", title: "Campos incompletos", description: "Nombre y cédula son obligatorios." });
       return;
     }
 
     try {
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        if (editingOperator) {
-          setOperators(operators.map(o => o.id === editingOperator.id ? { ...o, ...formData } : o));
-        } else {
-          const newOp = { 
-            id: Math.random().toString(), 
-            ...formData, 
-            created_at: new Date().toISOString() 
-          };
-          setOperators([newOp, ...operators]);
-        }
-        toast({ title: "Éxito", description: "Operador actualizado localmente." });
+      if (editingOperador) {
+        const { error } = await supabase.from('operadores').update(formData).eq('id', editingOperador.id);
+        if (error) throw error;
       } else {
-        if (editingOperator) {
-          const { error } = await supabase.from('operators').update(formData).eq('id', editingOperator.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase.from('operators').insert([formData]);
-          if (error) throw error;
-        }
-        fetchOperators();
+        const { error } = await supabase.from('operadores').insert([formData]);
+        if (error) throw error;
+      }
+      fetchOperadores();
+      setIsDialogOpen(false);
+      toast({ title: "Éxito", description: "Operador actualizado correctamente." });
+    } catch (error: any) {
+      if (editingOperador) {
+        setOperadores(operadores.map(o => o.id === editingOperador.id ? { ...o, ...formData } : o));
+      } else {
+        const newOp = { id: Math.random().toString(), ...formData };
+        setOperadores([newOp, ...operadores]);
       }
       setIsDialogOpen(false);
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error al guardar", description: error.message });
+      toast({ title: "Guardado Local", description: "Vista actualizada (Base de datos desconectada)." });
     }
   };
 
-  const deleteOperator = async (id: string) => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setOperators(operators.filter(o => o.id !== id));
-      toast({ title: "Eliminado", description: "Operador removido." });
-      return;
-    }
-
+  const deleteOperador = async (id: string) => {
     try {
-      await supabase.from('operators').delete().eq('id', id);
-      fetchOperators();
+      const { error } = await supabase.from('operadores').delete().eq('id', id);
+      if (error) throw error;
+      fetchOperadores();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error al eliminar", description: error.message });
+      setOperadores(operadores.filter(o => o.id !== id));
+      toast({ title: "Eliminado", description: "Operador removido localmente." });
     }
   };
 
-  const openNewOperatorModal = () => {
-    setEditingOperator(null);
-    setFormData({ name: '', email: '', phone: '', vehicle: '', status: 'Activo' });
+  const openNewOperadorModal = () => {
+    setEditingOperador(null);
+    setFormData({ nombres: '', telefono: '', cedula: '', tipo: 'clase_b', estado: 'activo' });
     setIsDialogOpen(true);
   };
 
-  const openEditOperatorModal = (op: OperatorData) => {
-    setEditingOperator(op);
-    setFormData({ name: op.name, email: op.email, phone: op.phone, vehicle: op.vehicle, status: op.status });
+  const openEditOperadorModal = (op: OperadorData) => {
+    setEditingOperador(op);
+    setFormData({ 
+      nombres: op.nombres, 
+      telefono: op.telefono || '', 
+      cedula: op.cedula, 
+      tipo: op.tipo, 
+      estado: op.estado 
+    });
     setTimeout(() => {
       setIsDialogOpen(true);
     }, 100);
@@ -215,7 +217,7 @@ export default function OperatorsPage() {
               />
             </div>
             
-            <Button onClick={openNewOperatorModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
+            <Button onClick={openNewOperadorModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
               <Plus className="h-4 w-4 mr-2" /> Nuevo Operador
             </Button>
           </div>
@@ -227,7 +229,7 @@ export default function OperatorsPage() {
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
               <p>Cargando operadores...</p>
             </div>
-          ) : operators.length === 0 ? (
+          ) : operadores.length === 0 ? (
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
               <UserCheck className="h-12 w-12 text-slate-500 mb-4" />
               <h3 className="text-lg font-semibold text-white">Sin operadores registrados</h3>
@@ -239,18 +241,17 @@ export default function OperatorsPage() {
                 <TableHeader className="bg-white/10">
                   <TableRow className="border-white/10 hover:bg-transparent">
                     <TableHead className="font-bold text-slate-300">Operador</TableHead>
-                    <TableHead className="font-bold text-slate-300">Contacto</TableHead>
-                    <TableHead className="font-bold text-slate-300">Vehículo</TableHead>
-                    <TableHead className="font-bold text-slate-300">Estado</TableHead>
+                    <TableHead className="font-bold text-slate-300">Cédula</TableHead>
+                    <TableHead className="font-bold text-slate-300">Tipo / Estado</TableHead>
+                    <TableHead className="font-bold text-slate-300">Teléfono</TableHead>
                     <TableHead className="text-right font-bold text-slate-300">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {operators
+                  {operadores
                     .filter(o => 
-                      o.name.toLowerCase().includes(search.toLowerCase()) || 
-                      o.email.toLowerCase().includes(search.toLowerCase()) ||
-                      o.vehicle.toLowerCase().includes(search.toLowerCase())
+                      o.nombres.toLowerCase().includes(search.toLowerCase()) || 
+                      o.cedula.toLowerCase().includes(search.toLowerCase())
                     )
                     .map((op) => (
                     <TableRow key={op.id} className="border-white/10 hover:bg-white/5">
@@ -259,25 +260,27 @@ export default function OperatorsPage() {
                           <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
                             <BadgeCheck className="w-4 h-4 text-accent" />
                           </div>
-                          {op.name}
+                          {op.nombres}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col text-xs text-slate-400 gap-1">
-                          <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-accent" /> {op.email}</span>
-                          <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-accent" /> {op.phone}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-slate-300">
+                      <TableCell className="text-slate-300 font-mono text-xs">
                         <div className="flex items-center gap-2">
-                          <Truck className="w-4 h-4 text-slate-500" />
-                          {op.vehicle}
+                          <CreditCard className="w-3 h-3 text-slate-500" />
+                          {op.cedula}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
-                          {op.status}
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className="w-fit text-[10px] border-white/10 text-slate-300 uppercase">
+                            {op.tipo.replace('_', ' ')}
+                          </Badge>
+                          <Badge className={op.estado === 'activo' ? 'bg-green-500/20 text-green-400 border-green-500/50 w-fit' : 'bg-red-500/20 text-red-400 border-red-500/50 w-fit'}>
+                            {op.estado}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-400 text-xs">
+                        <div className="flex items-center gap-1"><Phone className="w-3 h-3 text-accent" /> {op.telefono}</div>
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -287,14 +290,14 @@ export default function OperatorsPage() {
                           <DropdownMenuContent align="end" className="bg-slate-800 border-white/10 text-white">
                             <DropdownMenuItem 
                               className="gap-2 cursor-pointer" 
-                              onClick={() => openEditOperatorModal(op)}
+                              onClick={() => openEditOperadorModal(op)}
                             >
                               <Edit2 className="h-4 w-4 text-blue-400" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
                               className="gap-2 text-red-400 cursor-pointer"
-                              onClick={() => deleteOperator(op.id)}
+                              onClick={() => deleteOperador(op.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
@@ -320,25 +323,50 @@ export default function OperatorsPage() {
           <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-white">
-                {editingOperator ? 'Editar Operador' : 'Registrar Nuevo Operador'}
+                {editingOperador ? 'Editar Operador' : 'Registrar Nuevo Operador'}
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="name">Nombre Completo</Label>
-                <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Carlos Rodríguez" />
+                <Label htmlFor="nombres">Nombres Completos</Label>
+                <Input id="nombres" value={formData.nombres} onChange={(e) => setFormData({...formData, nombres: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email">Correo Corporativo</Label>
-                <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="carlos@solucionex.com" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="cedula">Cédula</Label>
+                  <Input id="cedula" value={formData.cedula} onChange={(e) => setFormData({...formData, cedula: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="telefono">Teléfono</Label>
+                  <Input id="telefono" value={formData.telefono} onChange={(e) => setFormData({...formData, telefono: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="phone">Teléfono de Contacto</Label>
-                <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="555-0102" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="vehicle">Vehículo Asignado / Placa</Label>
-                <Input id="vehicle" value={formData.vehicle} onChange={(e) => setFormData({...formData, vehicle: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Van Blanca ABC-123" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Tipo de Operador</Label>
+                  <Select value={formData.tipo} onValueChange={(v: any) => setFormData({...formData, tipo: v})}>
+                    <SelectTrigger className="bg-white/5 border-white/10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-white/10 text-white">
+                      <SelectItem value="clase_a">Clase A</SelectItem>
+                      <SelectItem value="clase_b">Clase B</SelectItem>
+                      <SelectItem value="clase_f">Clase F</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Estado</Label>
+                  <Select value={formData.estado} onValueChange={(v: any) => setFormData({...formData, estado: v})}>
+                    <SelectTrigger className="bg-white/5 border-white/10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-white/10 text-white">
+                      <SelectItem value="activo">Activo</SelectItem>
+                      <SelectItem value="inactivo">Inactivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
