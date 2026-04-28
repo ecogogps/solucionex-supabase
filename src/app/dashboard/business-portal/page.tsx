@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 
 interface PaqueteData {
   id: string;
@@ -191,7 +192,10 @@ export default function BusinessPortal() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId) return;
+    if (!userId) {
+      toast({ variant: "destructive", title: "Error", description: "No hay una sesión activa." });
+      return;
+    }
     
     setLoading(true);
 
@@ -200,19 +204,29 @@ export default function BusinessPortal() {
 
       // 1. Subir imagen si existe
       if (capturedImage) {
-        const blob = base64ToBlob(capturedImage, 'image/jpeg');
-        const fileName = `images/guia-${Date.now()}.jpg`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('paquetes')
-          .upload(fileName, blob);
+        try {
+          const blob = base64ToBlob(capturedImage, 'image/jpeg');
+          const fileName = `images/guia-${Date.now()}.jpg`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('paquetes')
+            .upload(fileName, blob, {
+              contentType: 'image/jpeg',
+              cacheControl: '3600'
+            });
 
-        if (uploadError) throw uploadError;
+          if (uploadError) {
+            console.error("Storage Error:", uploadError);
+            throw new Error(`Error al subir imagen: ${uploadError.message}. Asegúrate de tener configuradas las políticas RLS en el bucket 'paquetes'.`);
+          }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('paquetes')
-          .getPublicUrl(fileName);
-        
-        imageUrl = publicUrl;
+          const { data: { publicUrl } } = supabase.storage
+            .from('paquetes')
+            .getPublicUrl(fileName);
+          
+          imageUrl = publicUrl;
+        } catch (imgError: any) {
+          throw imgError;
+        }
       }
 
       // 2. Insertar en tabla paquetes
@@ -346,7 +360,10 @@ export default function BusinessPortal() {
           </Button>
         </nav>
         <div className="pt-6 border-t border-white/10">
-          <Button variant="ghost" className="w-full justify-start gap-3 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => router.push('/')}>
+          <Button variant="ghost" className="w-full justify-start gap-3 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => {
+            supabase.auth.signOut();
+            router.push('/');
+          }}>
             <LogOut className="h-5 w-5" /> Cerrar Sesión
           </Button>
         </div>
@@ -579,19 +596,22 @@ export default function BusinessPortal() {
                             <div className="bg-accent/10 p-3 rounded-lg border border-accent/20">
                               <Package className="h-6 w-6 text-accent" />
                             </div>
-                            <div>
-                              <p className="font-bold text-white">Guía: {pkg.guia_numero}</p>
-                              <p className="text-xs text-slate-400 truncate max-w-[150px] md:max-w-[300px]">
-                                {pkg.direccion}
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-white">Guía: {pkg.guia_numero}</p>
+                                {getStatusBadge(pkg.estado)}
+                              </div>
+                              <p className="text-xs text-slate-400 truncate max-w-[150px] md:max-w-[300px] mt-1">
+                                <MapPin className="inline h-3 w-3 mr-1" /> {pkg.direccion}
                               </p>
                               <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">
                                 {new Date(pkg.created_at).toLocaleString()}
                               </p>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end gap-2">
-                             {getStatusBadge(pkg.estado)}
-                             <p className="text-sm font-bold text-accent">${pkg.valor_pedido}</p>
+                          <div className="flex flex-col items-end justify-center">
+                             <p className="text-lg font-bold text-accent">${pkg.valor_pedido}</p>
+                             <p className="text-[10px] text-slate-500 uppercase">{pkg.tipo}</p>
                           </div>
                         </CardContent>
                       </Card>
