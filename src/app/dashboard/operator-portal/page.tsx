@@ -19,7 +19,7 @@ import {
   ChevronRight,
   FileText,
   CreditCard,
-  Image as ImageIcon,
+  ImageIcon,
   MapPinned,
   Building2
 } from 'lucide-react';
@@ -67,7 +67,6 @@ export default function OperatorPortal() {
   const [activeTab, setActiveTab] = useState<'disponibles' | 'mis_entregas'>('disponibles');
   const [rejectedIds, setRejectedIds] = useState<string[]>([]);
   
-  // Detail Dialog State
   const [selectedPackage, setSelectedPackage] = useState<PaqueteData | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -88,7 +87,6 @@ export default function OperatorPortal() {
     getSession();
   }, [router]);
 
-  // Realtime subscription
   useEffect(() => {
     if (!userId) return;
 
@@ -116,24 +114,17 @@ export default function OperatorPortal() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("Error fetching data:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
+        // Mejoramos el log para ver el error completo en formato texto
+        console.error("Error fetching data:", JSON.stringify(error, null, 2));
         return;
       }
 
-      // Disponibles: estado 'buscando_operador' y sin operador asignado
       const available = data.filter(p => p.estado === 'buscando_operador' && !p.operador_id);
-      
-      // Mis Entregas: asignados a mí y no entregados aún
       const mine = data.filter(p => p.operador_id === currentUserId && p.estado !== 'entregado');
       
       setAvailablePackages(available);
       setMyDeliveries(mine);
 
-      // Update selected package if it's open to refresh data
       if (selectedPackage) {
         const updated = data.find(p => p.id === selectedPackage.id);
         if (updated) setSelectedPackage(updated);
@@ -373,7 +364,6 @@ export default function OperatorPortal() {
         )}
       </main>
 
-      {/* Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -452,7 +442,7 @@ export default function OperatorPortal() {
                 {selectedPackage.imagen_url && (
                   <div className="space-y-2">
                     <p className="text-xs text-slate-500 font-bold uppercase flex items-center gap-1">
-                      <ImageIcon className="w-3 h-3" /> Imagen de Guía
+                      <CreditCard className="w-3 h-3" /> Imagen de Guía
                     </p>
                     <div className="relative aspect-video rounded-lg overflow-hidden border border-white/10 bg-black">
                       <Image 
@@ -520,7 +510,7 @@ export default function OperatorPortal() {
           <Package className="h-5 w-5" />
           <span className="text-[10px] font-bold">Solicitudes</span>
           {activeTab === 'disponibles' && <div className="absolute top-0 w-8 h-1 bg-accent rounded-b-full" />}
-          {availablePackages.length > 0 && activeTab !== 'disponibles' && (
+          {visiblePackages.length > 0 && activeTab !== 'disponibles' && (
             <span className="absolute top-3 right-[30%] w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
           )}
         </button>
