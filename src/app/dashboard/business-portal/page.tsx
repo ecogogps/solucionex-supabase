@@ -36,7 +36,6 @@ import Link from 'next/link';
 
 export default function BusinessPortalRequest() {
   const [loading, setLoading] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const pathname = usePathname();
 
@@ -197,16 +196,12 @@ export default function BusinessPortalRequest() {
 
       if (insertError) throw insertError;
 
-      setIsSearching(true);
+      toast({
+        title: "Solicitud registrada",
+        description: `El paquete ${formData.trackingNumber} ha sido procesado.`,
+      });
       
-      setTimeout(() => {
-        setIsSearching(false);
-        router.push('/dashboard/business-portal/packages');
-        toast({
-          title: "Solicitud registrada",
-          description: `El paquete ${formData.trackingNumber} ha sido procesado.`,
-        });
-      }, 4000);
+      router.push('/dashboard/business-portal/packages');
 
     } catch (error: any) {
       console.error("Error al enviar solicitud:", error);
@@ -219,29 +214,6 @@ export default function BusinessPortalRequest() {
       setLoading(false);
     }
   };
-
-  if (isSearching) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-white overflow-hidden">
-        <div className="relative mb-8">
-          <div className="absolute inset-0 rounded-full bg-accent/20 animate-ping" />
-          <div className="relative bg-white/10 p-8 rounded-full border border-white/20 shadow-[0_0_50px_rgba(0,255,255,0.2)]">
-            <PlusCircle className="h-16 w-16 text-accent animate-bounce" />
-          </div>
-        </div>
-        <div className="text-center space-y-4 max-w-sm">
-          <h2 className="text-3xl font-bold tracking-tight mb-2">Procesando Solicitud</h2>
-          <div className="bg-white/5 border border-white/10 rounded-full px-6 py-2 inline-block">
-            <span className="text-accent text-lg font-bold tracking-normal">Guía Nº: {formData.trackingNumber}</span>
-          </div>
-        </div>
-        <div className="mt-12 flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-accent" />
-          <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">Enviando a red de operadores</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row text-white overflow-hidden">
