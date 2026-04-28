@@ -172,7 +172,6 @@ export default function SolicitudesPage() {
               <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
                 <Package className="h-12 w-12 text-slate-500 mb-4" />
                 <h3 className="text-lg font-semibold text-white">No hay pedidos nuevos</h3>
-                <p className="text-slate-400 text-sm mt-2">Mantente atento, los pedidos aparecen aquí instantáneamente.</p>
               </div>
             ) : (
               visiblePackages.map((pkg) => (
