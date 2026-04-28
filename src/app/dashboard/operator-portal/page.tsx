@@ -159,9 +159,6 @@ export default function SolicitudesPage() {
       <main className="flex-1 p-4 lg:p-6 space-y-6 pb-24">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold">Solicitudes Disponibles</h2>
-          <p className="text-slate-400 text-sm">
-            {visiblePackages.length} pedidos esperando ser tomados en tiempo real
-          </p>
         </div>
 
         {loading ? (
