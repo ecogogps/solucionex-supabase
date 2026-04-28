@@ -12,7 +12,6 @@ import {
   Trash2,
   Edit2,
   Loader2,
-  Mail,
   Phone,
   Package,
   UserCheck,
@@ -111,19 +110,30 @@ export default function OperatorsPage() {
   };
 
   const handleSave = async () => {
-    if (!formData.nombres || !formData.cedula || !formData.email) {
-      toast({ variant: "destructive", title: "Campos incompletos", description: "Nombre, cédula y correo son obligatorios." });
-      return;
-    }
-
-    if (!editingOperador && !formData.password) {
-      toast({ variant: "destructive", title: "Contraseña requerida", description: "Debes asignar una contraseña para el acceso del operador." });
-      return;
+    // Validaciones solo para nuevos operadores
+    if (!editingOperador) {
+      if (!formData.nombres || !formData.cedula || !formData.email) {
+        toast({ 
+          variant: "destructive", 
+          title: "Campos incompletos", 
+          description: "Nombre, cédula y correo son obligatorios para nuevos operadores." 
+        });
+        return;
+      }
+      if (!formData.password) {
+        toast({ 
+          variant: "destructive", 
+          title: "Contraseña requerida", 
+          description: "Debes asignar una contraseña para el acceso del nuevo operador." 
+        });
+        return;
+      }
     }
 
     setIsSaving(true);
     try {
       if (editingOperador) {
+        // Al editar, no hay campos obligatorios en el frontend
         const { error } = await supabase
           .from('operadores')
           .update({
@@ -207,13 +217,13 @@ export default function OperatorsPage() {
   const openEditOperadorModal = (op: OperadorData) => {
     setEditingOperador(op);
     setFormData({ 
-      nombres: op.nombres, 
+      nombres: op.nombres || '', 
       email: '', 
       password: '',
       telefono: op.telefono || '', 
-      cedula: op.cedula, 
-      tipo: op.tipo, 
-      estado: op.estado 
+      cedula: op.cedula || '', 
+      tipo: op.tipo || 'clase_b', 
+      estado: op.estado || 'activo' 
     });
     setTimeout(() => {
       setIsDialogOpen(true);
@@ -298,8 +308,8 @@ export default function OperatorsPage() {
                 <TableBody>
                   {operadores
                     .filter(o => 
-                      o.nombres.toLowerCase().includes(search.toLowerCase()) || 
-                      o.cedula.toLowerCase().includes(search.toLowerCase())
+                      o.nombres?.toLowerCase().includes(search.toLowerCase()) || 
+                      o.cedula?.toLowerCase().includes(search.toLowerCase())
                     )
                     .map((op) => (
                     <TableRow key={op.id} className="border-white/10 hover:bg-white/5">
@@ -320,7 +330,7 @@ export default function OperatorsPage() {
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <Badge variant="outline" className="w-fit text-[10px] border-white/10 text-slate-300 uppercase">
-                            {op.tipo.replace('_', ' ')}
+                            {op.tipo?.replace('_', ' ')}
                           </Badge>
                           <Badge className={op.estado === 'activo' ? 'bg-green-500/20 text-green-400 border-green-500/50 w-fit' : 'bg-red-500/20 text-red-400 border-red-500/50 w-fit'}>
                             {op.estado}
