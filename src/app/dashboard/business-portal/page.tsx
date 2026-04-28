@@ -56,6 +56,7 @@ export default function BusinessPortal() {
   const [activeTab, setActiveTab] = useState<'solicitud' | 'paquetes'>('solicitud');
   const [misPaquetes, setMisPaquetes] = useState<PaqueteData[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   const [formData, setFormData] = useState({
     type: '',
@@ -80,6 +81,7 @@ export default function BusinessPortal() {
   const { toast } = useToast();
 
   useEffect(() => {
+    setIsMounted(true);
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -605,7 +607,7 @@ export default function BusinessPortal() {
                                 <MapPin className="inline h-3 w-3 mr-1" /> {pkg.direccion}
                               </p>
                               <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">
-                                {new Date(pkg.created_at).toLocaleString()}
+                                {isMounted ? new Date(pkg.created_at).toLocaleDateString() : ''}
                               </p>
                             </div>
                           </div>

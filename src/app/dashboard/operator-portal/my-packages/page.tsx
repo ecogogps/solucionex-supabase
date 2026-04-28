@@ -64,12 +64,14 @@ export default function MyPackagesPage() {
   const [selectedPackage, setSelectedPackage] = useState<PaqueteData | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
 
   useEffect(() => {
+    setIsMounted(true);
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -267,7 +269,9 @@ export default function MyPackagesPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-bold">Guía: {selectedPackage.guia_numero}</h3>
-                  <p className="text-xs text-slate-400">{new Date(selectedPackage.created_at).toLocaleString()}</p>
+                  <p className="text-xs text-slate-400">
+                    {isMounted ? new Date(selectedPackage.created_at).toLocaleDateString() : ''}
+                  </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                    {getStatusBadge(selectedPackage.estado)}
