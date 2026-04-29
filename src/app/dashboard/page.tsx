@@ -16,7 +16,8 @@ import {
   Loader2,
   AlertCircle,
   Building2,
-  UserCheck
+  UserCheck,
+  UserX
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -77,7 +78,7 @@ export default function Dashboard() {
   const fetchPackages = async () => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
       setPackages([
-        { id: '1', tracking: 'PAQ-9901', company: 'Empresa Demo A', destiny: 'Calle Falsa 123', status: 'En Ruta', created_at: new Date().toISOString() },
+        { id: '1', tracking: 'PAQ-9901', company: 'Empresa Demo A', destiny: 'Calle Falsa 123', status: 'En camino', created_at: new Date().toISOString() },
         { id: '2', tracking: 'PAQ-4422', company: 'Tienda Ejemplo', destiny: 'Av. Libertador 456', status: 'Pendiente', created_at: new Date().toISOString() }
       ]);
       setLoading(false);
@@ -167,9 +168,12 @@ export default function Dashboard() {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Entregado': return <Badge className="bg-green-500/20 text-green-400 border-green-500/50"><CheckCircle2 className="w-3 h-3 mr-1"/> Entregado</Badge>;
-      case 'En Ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En Ruta</Badge>;
+    const s = status.toLowerCase();
+    switch (s) {
+      case 'entregado': return <Badge className="bg-green-500/20 text-green-400 border-green-500/50"><CheckCircle2 className="w-3 h-3 mr-1"/> Entregado</Badge>;
+      case 'en_ruta': 
+      case 'en camino': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En camino</Badge>;
+      case 'cancelado': return <Badge className="bg-red-500/20 text-red-400 border-red-500/50"><UserX className="w-3 h-3 mr-1"/> Sin respuesta</Badge>;
       default: return <Badge variant="outline" className="text-orange-400 border-orange-400/50 bg-orange-400/10"><Clock className="w-3 h-3 mr-1"/> Pendiente</Badge>;
     }
   };
@@ -322,8 +326,9 @@ export default function Dashboard() {
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-white/10 text-white">
                     <SelectItem value="Pendiente">Pendiente</SelectItem>
-                    <SelectItem value="En Ruta">En Ruta</SelectItem>
+                    <SelectItem value="En camino">En camino</SelectItem>
                     <SelectItem value="Entregado">Entregado</SelectItem>
+                    <SelectItem value="cancelado">Sin respuesta</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

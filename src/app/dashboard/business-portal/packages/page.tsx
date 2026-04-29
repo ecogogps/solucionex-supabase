@@ -11,7 +11,8 @@ import {
   MapPin,
   Clock,
   CheckCircle2,
-  MapPinned
+  MapPinned,
+  UserX
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -104,7 +105,9 @@ export default function BusinessPackagesPage() {
       case 'llegado': 
         return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/50"><MapPinned className="w-3 h-3 mr-1"/> He llegado</Badge>;
       case 'en_ruta': 
-        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En Ruta</Badge>;
+        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En camino</Badge>;
+      case 'cancelado': 
+        return <Badge className="bg-red-500/20 text-red-400 border-red-500/50"><UserX className="w-3 h-3 mr-1"/> Sin respuesta</Badge>;
       case 'buscando_operador': 
         return <Badge variant="outline" className="text-accent border-accent/50 bg-accent/10"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Buscando</Badge>;
       default: 

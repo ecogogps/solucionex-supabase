@@ -19,7 +19,8 @@ import {
   CreditCard,
   MapPinned,
   Building2,
-  Clock
+  Clock,
+  UserX
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -115,6 +116,7 @@ export default function MyPackagesPage() {
         .select('*, empresas(nombre, direccion)')
         .eq('operador_id', currentUserId)
         .neq('estado', 'entregado')
+        .neq('estado', 'cancelado')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -151,9 +153,10 @@ export default function MyPackagesPage() {
       if (error) throw error;
 
       const statusLabels: Record<string, string> = {
-        'en_ruta': 'En Ruta',
+        'en_ruta': 'En camino',
         'llegado': 'Llegado al destino',
-        'entregado': 'Entregado'
+        'entregado': 'Entregado',
+        'cancelado': 'Sin respuesta / Cancelado'
       };
 
       toast({
@@ -161,7 +164,7 @@ export default function MyPackagesPage() {
         description: `Pedido marcado como ${statusLabels[newStatus] || newStatus}.`,
       });
       
-      if (newStatus === 'entregado') {
+      if (newStatus === 'entregado' || newStatus === 'cancelado') {
         setIsDetailOpen(false);
       }
       
@@ -185,8 +188,9 @@ export default function MyPackagesPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'entregado': return <Badge className="bg-green-500/20 text-green-400 border-green-500/50"><CheckCircle2 className="w-3 h-3 mr-1"/> Entregado</Badge>;
-      case 'en_ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En Ruta</Badge>;
+      case 'en_ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En camino</Badge>;
       case 'llegado': return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/50"><MapPinned className="w-3 h-3 mr-1"/> He llegado</Badge>;
+      case 'cancelado': return <Badge className="bg-red-500/20 text-red-400 border-red-500/50"><UserX className="w-3 h-3 mr-1"/> Sin respuesta</Badge>;
       default: return <Badge variant="outline" className="text-orange-400 border-orange-400/50 bg-orange-400/10"><Clock className="w-3 h-3 mr-1"/> Pendiente</Badge>;
     }
   };
@@ -386,14 +390,25 @@ export default function MyPackagesPage() {
             )}
 
             {(selectedPackage?.estado === 'llegado' || selectedPackage?.estado === 'en_ruta') && (
-              <Button 
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12"
-                onClick={() => selectedPackage && handleUpdateStatus(selectedPackage.id, 'entregado')}
-                disabled={updatingStatus}
-              >
-                {updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
-                Marcar como Entregado
-              </Button>
+              <div className="flex flex-col gap-2 w-full">
+                <Button 
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12"
+                  onClick={() => selectedPackage && handleUpdateStatus(selectedPackage.id, 'entregado')}
+                  disabled={updatingStatus}
+                >
+                  {updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
+                  Marcar como Entregado
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="w-full border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold h-12"
+                  onClick={() => selectedPackage && handleUpdateStatus(selectedPackage.id, 'cancelado')}
+                  disabled={updatingStatus}
+                >
+                  {updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <UserX className="mr-2 h-5 w-5" />}
+                  Sin respuesta
+                </Button>
+              </div>
             )}
 
             <Button variant="ghost" onClick={() => setIsDetailOpen(false)} className="w-full text-slate-400">
