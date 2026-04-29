@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -104,7 +105,6 @@ export default function DashboardAdmin() {
     
     checkSession();
     
-    // Suscripción en tiempo real
     const channel = supabase
       .channel('admin_packages_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'paquetes' }, () => {
@@ -119,16 +119,35 @@ export default function DashboardAdmin() {
 
   const fetchData = async () => {
     try {
-      // Cargar paquetes
+      // Intentamos cargar paquetes con relaciones. 
+      // Si falla por falta de FK en la DB, mostramos un error informativo.
       const { data: pkgData, error: pkgError } = await supabase
         .from('paquetes')
-        .select('*, empresas(nombre), operadores(nombres)')
+        .select(`
+          *,
+          empresas (nombre),
+          operadores (nombres)
+        `)
         .order('created_at', { ascending: false });
       
-      if (pkgError) throw pkgError;
-      setPackages(pkgData || []);
+      if (pkgError) {
+        console.error("Error cargando paquetes:", JSON.stringify(pkgError, null, 2));
+        // Si el error es específicamente de relación, intentamos cargar sin relaciones para no romper la UI
+        if (pkgError.code === 'PGRST200') {
+          const { data: simpleData } = await supabase.from('paquetes').select('*').order('created_at', { ascending: false });
+          setPackages(simpleData || []);
+          toast({ 
+            variant: "destructive", 
+            title: "Error de Relación", 
+            description: "No se encontraron relaciones en la base de datos. Ejecuta el script SQL proporcionado." 
+          });
+        } else {
+          throw pkgError;
+        }
+      } else {
+        setPackages(pkgData || []);
+      }
 
-      // Cargar operadores para el select de edición
       const { data: opData, error: opError } = await supabase
         .from('operadores')
         .select('id, nombres')
@@ -138,11 +157,11 @@ export default function DashboardAdmin() {
       setOperadores(opData || []);
 
     } catch (error: any) {
-      console.error("Error cargando datos:", JSON.stringify(error, null, 2));
+      console.error("Error general fetchData:", JSON.stringify(error, null, 2));
       toast({ 
         variant: "destructive", 
         title: "Error de sincronización", 
-        description: "No se pudo obtener la información más reciente del servidor." 
+        description: "No se pudo obtener la información completa del servidor." 
       });
     } finally {
       setLoading(false);
