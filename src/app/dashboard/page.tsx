@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Package, 
-  Plus, 
   Search, 
   MoreVertical, 
   LogOut, 
@@ -14,10 +13,13 @@ import {
   Trash2,
   Edit2,
   Loader2,
-  AlertCircle,
   Building2,
   UserCheck,
-  UserX
+  UserX,
+  MapPin,
+  DollarSign,
+  Hash,
+  MapPinned
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -52,116 +54,143 @@ import Link from 'next/link';
 
 interface PackageData {
   id: string;
-  tracking: string;
-  company: string;
-  status: string;
-  destiny: string;
+  guia_numero: string;
+  tipo: string;
+  estado: string;
+  direccion: string;
+  valor_pedido: number;
+  metodo_pago: string;
+  operador_id: string | null;
+  empresa_id: string;
   created_at: string;
+  empresas?: { nombre: string };
+  operadores?: { nombres: string };
 }
 
-export default function Dashboard() {
+interface OperadorOption {
+  id: string;
+  nombres: string;
+}
+
+export default function DashboardAdmin() {
   const [packages, setPackages] = useState<PackageData[]>([]);
+  const [operadores, setOperadores] = useState<OperadorOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<PackageData | null>(null);
   
-  const [formData, setFormData] = useState({ company: '', destiny: '', status: 'Pendiente' });
+  const [formData, setFormData] = useState({ 
+    guia_numero: '',
+    direccion: '', 
+    estado: '',
+    valor_pedido: '',
+    operador_id: 'null' as string
+  });
   
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchPackages();
+    fetchData();
+    
+    // Suscripción en tiempo real
+    const channel = supabase
+      .channel('admin_packages_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paquetes' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  const fetchPackages = async () => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setPackages([
-        { id: '1', tracking: 'PAQ-9901', company: 'Empresa Demo A', destiny: 'Calle Falsa 123', status: 'En camino', created_at: new Date().toISOString() },
-        { id: '2', tracking: 'PAQ-4422', company: 'Tienda Ejemplo', destiny: 'Av. Libertador 456', status: 'Pendiente', created_at: new Date().toISOString() }
-      ]);
-      setLoading(false);
-      return;
-    }
-
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('packages')
-        .select('*')
+      // Cargar paquetes
+      const { data: pkgData, error: pkgError } = await supabase
+        .from('paquetes')
+        .select('*, empresas(nombre), operadores(nombres)')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
-      setPackages(data || []);
+      if (pkgError) throw pkgError;
+      setPackages(pkgData || []);
+
+      // Cargar operadores para el select de edición
+      const { data: opData, error: opError } = await supabase
+        .from('operadores')
+        .select('id, nombres')
+        .eq('estado', 'activo');
+      
+      if (opError) throw opError;
+      setOperadores(opData || []);
+
     } catch (error: any) {
-      console.error("Error cargando paquetes:", error);
+      console.error("Error cargando datos:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo sincronizar la información." });
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!formData.company || !formData.destiny) {
-      toast({ variant: "destructive", title: "Campos incompletos", description: "Por favor llena todos los campos." });
-      return;
-    }
-
+    if (!editingPackage) return;
+    
+    setIsSaving(true);
     try {
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        if (editingPackage) {
-          setPackages(packages.map(p => p.id === editingPackage.id ? { ...p, ...formData } : p));
-        } else {
-          const newPackage = { 
-            id: Math.random().toString(), 
-            tracking: `PAQ-${Math.floor(1000 + Math.random() * 9000)}`, 
-            ...formData, 
-            created_at: new Date().toISOString() 
-          };
-          setPackages([newPackage, ...packages]);
-        }
-        toast({ title: "Operación exitosa", description: "Paquete guardado localmente." });
-      } else {
-        if (editingPackage) {
-          const { error } = await supabase.from('packages').update(formData).eq('id', editingPackage.id);
-          if (error) throw error;
-        } else {
-          const tracking = `PAQ-${Math.floor(1000 + Math.random() * 9000)}`;
-          const { error } = await supabase.from('packages').insert([{ ...formData, tracking }]);
-          if (error) throw error;
-        }
-        fetchPackages();
-      }
+      const { error } = await supabase
+        .from('paquetes')
+        .update({
+          guia_numero: formData.guia_numero,
+          direccion: formData.direccion,
+          estado: formData.estado,
+          valor_pedido: parseFloat(formData.valor_pedido),
+          operador_id: formData.operador_id === 'null' ? null : formData.operador_id
+        })
+        .eq('id', editingPackage.id);
+
+      if (error) throw error;
+
+      toast({ title: "Actualizado", description: "Los cambios han sido guardados correctamente." });
       setIsDialogOpen(false);
+      fetchData();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error al guardar", description: error.message });
+      toast({ 
+        variant: "destructive", 
+        title: "Error al guardar", 
+        description: error.message 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const deletePackage = async (id: string) => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      setPackages(packages.filter(p => p.id !== id));
-      toast({ title: "Eliminado", description: "El paquete ha sido removido." });
-      return;
-    }
-
+    if (!confirm('¿Estás seguro de eliminar este paquete permanentemente?')) return;
+    
     try {
-      await supabase.from('packages').delete().eq('id', id);
-      fetchPackages();
+      const { error } = await supabase.from('paquetes').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: "Eliminado", description: "El registro ha sido removido." });
+      fetchData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al eliminar", description: error.message });
     }
   };
 
-  const openNewPackageModal = () => {
-    setEditingPackage(null);
-    setFormData({ company: '', destiny: '', status: 'Pendiente' });
-    setIsDialogOpen(true);
-  };
-
   const openEditPackageModal = (pkg: PackageData) => {
     setEditingPackage(pkg);
-    setFormData({ company: pkg.company, destiny: pkg.destiny, status: pkg.status });
+    setFormData({ 
+      guia_numero: pkg.guia_numero,
+      direccion: pkg.direccion, 
+      estado: pkg.estado,
+      valor_pedido: pkg.valor_pedido.toString(),
+      operador_id: pkg.operador_id || 'null'
+    });
     setTimeout(() => {
       setIsDialogOpen(true);
     }, 100);
@@ -171,9 +200,10 @@ export default function Dashboard() {
     const s = status.toLowerCase();
     switch (s) {
       case 'entregado': return <Badge className="bg-green-500/20 text-green-400 border-green-500/50"><CheckCircle2 className="w-3 h-3 mr-1"/> Entregado</Badge>;
-      case 'en_ruta': 
-      case 'en camino': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En camino</Badge>;
+      case 'en_ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En camino</Badge>;
+      case 'llegado': return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/50"><MapPinned className="w-3 h-3 mr-1"/> He llegado</Badge>;
       case 'cancelado': return <Badge className="bg-red-500/20 text-red-400 border-red-500/50"><UserX className="w-3 h-3 mr-1"/> Sin respuesta</Badge>;
+      case 'buscando_operador': return <Badge variant="outline" className="text-accent border-accent/50 bg-accent/10"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Buscando</Badge>;
       default: return <Badge variant="outline" className="text-orange-400 border-orange-400/50 bg-orange-400/10"><Clock className="w-3 h-3 mr-1"/> Pendiente</Badge>;
     }
   };
@@ -211,44 +241,41 @@ export default function Dashboard() {
 
       <main className="flex-1 flex flex-col">
         <header className="h-16 bg-white/5 border-b border-white/10 flex items-center justify-between px-8">
-          <h2 className="text-xl font-bold text-white">Gestión de Paquetes</h2>
+          <h2 className="text-xl font-bold text-white">Gestión General de Paquetes</h2>
           <div className="flex items-center gap-4">
-            <div className="relative w-64">
+            <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input 
-                placeholder="Buscar paquete..." 
+                placeholder="Buscar por guía o empresa..." 
                 className="w-full bg-white/5 border border-white/10 rounded-md py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-accent text-white placeholder:text-slate-500" 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            
-            <Button onClick={openNewPackageModal} className="bg-accent text-primary hover:bg-accent/90 font-bold">
-              <Plus className="h-4 w-4 mr-2" /> Nuevo Paquete
-            </Button>
           </div>
         </header>
 
         <div className="p-8">
-          {loading ? (
+          {loading && packages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
-              <p>Cargando información...</p>
+              <p>Sincronizando con el servidor...</p>
             </div>
           ) : packages.length === 0 ? (
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
-              <AlertCircle className="h-12 w-12 text-slate-500 mb-4" />
-              <h3 className="text-lg font-semibold text-white">Sin paquetes registrados</h3>
-              <p className="text-slate-400">Comienza registrando tu primer paquete.</p>
+              <Package className="h-12 w-12 text-slate-500 mb-4" />
+              <h3 className="text-lg font-semibold text-white">Sin registros</h3>
+              <p className="text-slate-400">No hay paquetes activos en el sistema.</p>
             </div>
           ) : (
             <div className="bg-white/5 rounded-xl shadow-2xl border border-white/10 overflow-hidden backdrop-blur-sm">
               <Table>
                 <TableHeader className="bg-white/10">
                   <TableRow className="border-white/10 hover:bg-transparent">
-                    <TableHead className="font-bold text-slate-300">ID Paquete</TableHead>
-                    <TableHead className="font-bold text-slate-300">Empresa</TableHead>
+                    <TableHead className="font-bold text-slate-300">Guía / Fecha</TableHead>
+                    <TableHead className="font-bold text-slate-300">Empresa / Operador</TableHead>
                     <TableHead className="font-bold text-slate-300">Destino</TableHead>
+                    <TableHead className="font-bold text-slate-300">Valor</TableHead>
                     <TableHead className="font-bold text-slate-300">Estado</TableHead>
                     <TableHead className="text-right font-bold text-slate-300">Acciones</TableHead>
                   </TableRow>
@@ -256,15 +283,35 @@ export default function Dashboard() {
                 <TableBody>
                   {packages
                     .filter(p => 
-                      p.company.toLowerCase().includes(search.toLowerCase()) || 
-                      p.tracking.toLowerCase().includes(search.toLowerCase())
+                      p.guia_numero.toLowerCase().includes(search.toLowerCase()) || 
+                      p.empresas?.nombre?.toLowerCase().includes(search.toLowerCase()) ||
+                      p.operadores?.nombres?.toLowerCase().includes(search.toLowerCase())
                     )
                     .map((pkg) => (
                     <TableRow key={pkg.id} className="border-white/10 hover:bg-white/5">
-                      <TableCell className="font-mono font-medium text-accent">{pkg.tracking}</TableCell>
-                      <TableCell className="text-white">{pkg.company}</TableCell>
-                      <TableCell className="text-slate-300">{pkg.destiny}</TableCell>
-                      <TableCell>{getStatusBadge(pkg.status)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-mono font-medium text-accent">{pkg.guia_numero}</span>
+                          <span className="text-[10px] text-slate-500">{new Date(pkg.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-white text-xs flex items-center gap-1">
+                            <Building2 className="w-3 h-3 text-slate-400" /> {pkg.empresas?.nombre || 'N/A'}
+                          </span>
+                          <span className="text-slate-400 text-[10px] flex items-center gap-1 italic">
+                            <UserCheck className="w-3 h-3" /> {pkg.operadores?.nombres || 'No asignado'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate text-slate-300 text-xs">
+                         <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 shrink-0" /> {pkg.direccion}
+                         </div>
+                      </TableCell>
+                      <TableCell className="text-white font-bold">${pkg.valor_pedido}</TableCell>
+                      <TableCell>{getStatusBadge(pkg.estado)}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -275,7 +322,7 @@ export default function Dashboard() {
                               className="gap-2 cursor-pointer" 
                               onClick={() => openEditPackageModal(pkg)}
                             >
-                              <Edit2 className="h-4 w-4 text-blue-400" /> Editar
+                              <Edit2 className="h-4 w-4 text-blue-400" /> Gestionar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             <DropdownMenuItem 
@@ -303,39 +350,74 @@ export default function Dashboard() {
             }, 300);
           }
         }}>
-          <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
+          <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle className="text-white">
-                {editingPackage ? 'Editar Paquete' : 'Registrar Nuevo Paquete'}
+              <DialogTitle className="text-white flex items-center gap-2">
+                <Edit2 className="h-5 w-5 text-accent" /> Gestionar Paquete
               </DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="company">Empresa Solicitante</Label>
-                <Input id="company" value={formData.company} onChange={(e) => setFormData({...formData, company: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Ej: Empresa ACME" />
+            <div className="grid gap-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="guia" className="text-slate-400 flex items-center gap-1">
+                    <Hash className="w-3 h-3" /> Guía Nº
+                  </Label>
+                  <Input id="guia" value={formData.guia_numero} onChange={(e) => setFormData({...formData, guia_numero: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="valor" className="text-slate-400 flex items-center gap-1">
+                    <DollarSign className="w-3 h-3" /> Valor Pedido ($)
+                  </Label>
+                  <Input id="valor" type="number" step="0.01" value={formData.valor_pedido} onChange={(e) => setFormData({...formData, valor_pedido: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
+                </div>
               </div>
+
               <div className="grid gap-2">
-                <Label htmlFor="destiny">Dirección de Destino</Label>
-                <Input id="destiny" value={formData.destiny} onChange={(e) => setFormData({...formData, destiny: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" placeholder="Av. Principal 123" />
+                <Label htmlFor="dest" className="text-slate-400 flex items-center gap-1">
+                   <MapPin className="w-3 h-3" /> Dirección de Destino
+                </Label>
+                <Input id="dest" value={formData.direccion} onChange={(e) => setFormData({...formData, direccion: e.target.value})} className="bg-white/5 border-white/10 focus:ring-accent" />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="status">Estado del Paquete</Label>
-                <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
-                  <SelectTrigger className="bg-white/5 border-white/10">
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-white/10 text-white">
-                    <SelectItem value="Pendiente">Pendiente</SelectItem>
-                    <SelectItem value="En camino">En camino</SelectItem>
-                    <SelectItem value="Entregado">Entregado</SelectItem>
-                    <SelectItem value="cancelado">Sin respuesta</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label className="text-slate-400">Operador Asignado</Label>
+                  <Select value={formData.operador_id} onValueChange={(v) => setFormData({...formData, operador_id: v})}>
+                    <SelectTrigger className="bg-white/5 border-white/10">
+                      <SelectValue placeholder="Sin asignar" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-white/10 text-white">
+                      <SelectItem value="null">-- Ninguno --</SelectItem>
+                      {operadores.map((op) => (
+                        <SelectItem key={op.id} value={op.id}>{op.nombres}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-slate-400">Estado de Gestión</Label>
+                  <Select value={formData.estado} onValueChange={(v) => setFormData({...formData, estado: v})}>
+                    <SelectTrigger className="bg-white/5 border-white/10">
+                      <SelectValue placeholder="Seleccionar" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-white/10 text-white">
+                      <SelectItem value="buscando_operador">Buscando Operador</SelectItem>
+                      <SelectItem value="pendiente">Pendiente (Asignado)</SelectItem>
+                      <SelectItem value="en_ruta">En camino</SelectItem>
+                      <SelectItem value="llegado">He llegado</SelectItem>
+                      <SelectItem value="entregado">Entregado</SelectItem>
+                      <SelectItem value="cancelado">Sin respuesta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="text-slate-400 hover:text-white">Cancelar</Button>
-              <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold">Guardar Cambios</Button>
+            <DialogFooter className="gap-2 sm:gap-0 border-t border-white/5 pt-4">
+              <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="text-slate-400 hover:text-white">Cerrar</Button>
+              <Button onClick={handleSave} className="bg-accent text-primary hover:bg-accent/90 font-bold" disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                Guardar Cambios
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
