@@ -62,7 +62,7 @@ interface OperadorData {
   telefono: string;
   correo: string;
   cedula: string;
-  tipo: 'clase_a' | 'clase_b' | 'clase_f';
+  tipo: 'clase_a' | 'clase_b' | 'clase_s';
   estado: 'activo' | 'inactivo';
   created_at?: string;
 }
@@ -438,7 +438,7 @@ export default function OperatorsPage() {
                     <SelectContent className="bg-slate-800 border-white/10 text-white">
                       <SelectItem value="clase_a">Clase A</SelectItem>
                       <SelectItem value="clase_b">Clase B</SelectItem>
-                      <SelectItem value="clase_f">Clase F</SelectItem>
+                      <SelectItem value="clase_s">Clase S</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
