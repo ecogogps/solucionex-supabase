@@ -211,7 +211,7 @@ export default function BusinessPackagesPage() {
       if (error) throw error;
 
       toast({
-        title: "Paquete Anulado",
+        title: "Retorno a origen solicitado",
         description: "El estado se ha actualizado a 'Anulado - Retornar a origen'."
       });
       
@@ -221,7 +221,7 @@ export default function BusinessPackagesPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No se pudo anular el paquete."
+        description: "No se pudo procesar la solicitud."
       });
     } finally {
       setIsUpdating(false);
@@ -472,7 +472,7 @@ export default function BusinessPackagesPage() {
                       disabled={isUpdating}
                     >
                       {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />}
-                      Anular
+                      Retornar a origen
                     </Button>
                   </>
                 )}
