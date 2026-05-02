@@ -409,7 +409,7 @@ export default function MyPackagesPage() {
               <div className="flex flex-col gap-2">
                 <Button 
                   variant="outline" 
-                  className={cn("h-12 w-full gap-2 border-yellow-500/50 hover:bg-transparent", selectedPackage.alerta_no_contesta ? "bg-yellow-600 text-white" : "text-yellow-500")} 
+                  className={cn("h-12 w-full gap-2 border-yellow-500/50", selectedPackage.alerta_no_contesta ? "bg-yellow-600 text-white hover:bg-yellow-600" : "text-yellow-500 hover:bg-transparent hover:text-yellow-500")} 
                   onClick={toggleNoContesta} 
                   disabled={updatingStatus}
                 >
@@ -417,7 +417,7 @@ export default function MyPackagesPage() {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="h-12 w-full gap-2 border-blue-500/50 text-blue-400 hover:bg-transparent" 
+                  className="h-12 w-full gap-2 border-blue-500/50 text-blue-400 hover:bg-transparent hover:text-blue-400" 
                   onClick={() => { setIsPaymentChangeOpen(true); setIsDetailOpen(false); }} 
                   disabled={updatingStatus}
                 >
@@ -426,7 +426,7 @@ export default function MyPackagesPage() {
                 
                 <Button 
                   variant="outline" 
-                  className="h-12 w-full gap-2 border-orange-500/30 text-orange-400 hover:bg-transparent" 
+                  className="h-12 w-full gap-2 border-orange-500/30 text-orange-400 hover:bg-transparent hover:text-orange-400" 
                   onClick={() => handleLiberateClick('Liberado por daño mecánico')}
                   disabled={updatingStatus}
                 >
@@ -434,7 +434,7 @@ export default function MyPackagesPage() {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="h-12 w-full gap-2 border-indigo-500/30 text-indigo-400 hover:bg-transparent" 
+                  className="h-12 w-full gap-2 border-indigo-500/30 text-indigo-400 hover:bg-transparent hover:text-indigo-400" 
                   onClick={() => handleLiberateClick('Liberado por reasignación consentida')}
                   disabled={updatingStatus}
                 >
@@ -591,10 +591,10 @@ export default function MyPackagesPage() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  <Button variant="outline" className="w-full h-12 bg-white/5 border-white/10 gap-2 hover:bg-transparent" onClick={() => setShowCamera(true)}>
+                  <Button variant="outline" className="w-full h-12 bg-white/5 border-white/10 gap-2 hover:bg-white/5" onClick={() => setShowCamera(true)}>
                     <Camera className="h-5 w-5" /> Usar Cámara
                   </Button>
-                  <Button variant="outline" className="w-full h-12 bg-white/5 border-white/10 gap-2 hover:bg-transparent" onClick={() => fileInputRef.current?.click()}>
+                  <Button variant="outline" className="w-full h-12 bg-white/5 border-white/10 gap-2 hover:bg-white/5" onClick={() => fileInputRef.current?.click()}>
                     <Upload className="h-5 w-5" /> Adjuntar Imagen
                   </Button>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} />
@@ -640,7 +640,7 @@ export default function MyPackagesPage() {
               Sí, liberar paquete
             </AlertDialogAction>
             <AlertDialogCancel 
-              className="bg-white/5 border-white/10 text-white hover:bg-transparent h-12 w-full"
+              className="bg-white/5 border-white/10 text-white hover:bg-white/5 h-12 w-full"
             >
               Cancelar
             </AlertDialogCancel>
