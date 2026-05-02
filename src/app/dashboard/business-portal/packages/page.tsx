@@ -434,9 +434,9 @@ export default function BusinessPackagesPage() {
               <Button 
                 onClick={handlePrint} 
                 variant="outline"
-                className="w-full border-accent/50 text-accent h-12 hover:bg-transparent"
+                className="w-full border-accent/50 text-accent h-12 hover:bg-transparent hover:text-accent"
               >
-                <Printer className="h-4 w-4 mr-2" /> Imprimir Guía
+                <Printer className="h-4 w-4 mr-2" /> Imprimir
               </Button>
               
               {selectedPackage && isEditable(selectedPackage.estado) && (
