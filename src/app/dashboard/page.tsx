@@ -24,7 +24,8 @@ import {
   Phone,
   CreditCard,
   FileText,
-  Calendar
+  Calendar,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -90,11 +91,9 @@ export default function DashboardAdmin() {
   const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState('');
   
-  // Modales
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   
-  // Estados de datos para modales
   const [editingPackage, setEditingPackage] = useState<PackageData | null>(null);
   const [viewingPackage, setViewingPackage] = useState<PackageData | null>(null);
   
@@ -144,22 +143,8 @@ export default function DashboardAdmin() {
         `)
         .order('created_at', { ascending: false });
       
-      if (pkgError) {
-        console.error("Error cargando paquetes:", JSON.stringify(pkgError, null, 2));
-        if (pkgError.code === 'PGRST200') {
-          const { data: simpleData } = await supabase.from('paquetes').select('*').order('created_at', { ascending: false });
-          setPackages(simpleData || []);
-          toast({ 
-            variant: "destructive", 
-            title: "Error de Relación", 
-            description: "No se encontraron relaciones en la base de datos. Ejecuta el script SQL proporcionado." 
-          });
-        } else {
-          throw pkgError;
-        }
-      } else {
-        setPackages(pkgData || []);
-      }
+      if (pkgError) throw pkgError;
+      setPackages(pkgData || []);
 
       const { data: opData, error: opError } = await supabase
         .from('operadores')
@@ -170,12 +155,7 @@ export default function DashboardAdmin() {
       setOperadores(opData || []);
 
     } catch (error: any) {
-      console.error("Error general fetchData:", JSON.stringify(error, null, 2));
-      toast({ 
-        variant: "destructive", 
-        title: "Error de sincronización", 
-        description: "No se pudo obtener la información completa del servidor." 
-      });
+      console.error("Error fetchData:", error);
     } finally {
       setLoading(false);
     }
@@ -252,6 +232,7 @@ export default function DashboardAdmin() {
       case 'en_ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50"><Truck className="w-3 h-3 mr-1"/> En camino</Badge>;
       case 'llegado': return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/50"><MapPinned className="w-3 h-3 mr-1"/> He llegado</Badge>;
       case 'cancelado': return <Badge className="bg-red-500/20 text-red-400 border-red-500/50"><UserX className="w-3 h-3 mr-1"/> Entrega no ejecutada</Badge>;
+      case 'anulado_retornar': return <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50"><RotateCcw className="w-3 h-3 mr-1"/> Anulado - Retornar</Badge>;
       case 'buscando_operador': return <Badge variant="outline" className="text-accent border-accent/50 bg-accent/10"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Buscando</Badge>;
       default: return <Badge variant="outline" className="text-orange-400 border-orange-400/50 bg-orange-400/10"><Clock className="w-3 h-3 mr-1"/> Pendiente</Badge>;
     }
@@ -313,7 +294,7 @@ export default function DashboardAdmin() {
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
-              <p>Sincronizando con el servidor...</p>
+              <p>Sincronizando...</p>
             </div>
           ) : packages.length === 0 ? (
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center flex flex-col items-center">
@@ -406,15 +387,7 @@ export default function DashboardAdmin() {
           )}
         </div>
 
-        {/* Modal de Gestión */}
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          if (!open) {
-            setIsDialogOpen(false);
-            setTimeout(() => {
-              document.body.style.pointerEvents = 'auto';
-            }, 300);
-          }
-        }}>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="text-white flex items-center gap-2">
@@ -472,6 +445,7 @@ export default function DashboardAdmin() {
                       <SelectItem value="llegado">He llegado</SelectItem>
                       <SelectItem value="entregado">Entregado</SelectItem>
                       <SelectItem value="cancelado">Entrega no ejecutada</SelectItem>
+                      <SelectItem value="anulado_retornar">Anulado - Retornar a origen</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -487,7 +461,6 @@ export default function DashboardAdmin() {
           </DialogContent>
         </Dialog>
 
-        {/* Modal de Vista Detallada */}
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
           <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>

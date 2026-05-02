@@ -19,7 +19,9 @@ import {
   Edit2,
   Phone,
   CreditCard,
-  Save
+  Save,
+  RotateCcw,
+  AlertOctagon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -61,9 +63,7 @@ export default function BusinessPackagesPage() {
   const [misPaquetes, setMisPaquetes] = useState<PaqueteData[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
   
-  // Estados para edición
   const [selectedPackage, setSelectedPackage] = useState<PaqueteData | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -78,7 +78,6 @@ export default function BusinessPackagesPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    setIsMounted(true);
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -141,13 +140,12 @@ export default function BusinessPackagesPage() {
   const handleUpdatePackage = async () => {
     if (!selectedPackage) return;
     
-    // Restricción: No se puede editar si ya llegó, se entregó o se canceló
-    const restrictedStatuses = ['llegado', 'entregado', 'cancelado'];
+    const restrictedStatuses = ['llegado', 'entregado', 'cancelado', 'anulado_retornar'];
     if (restrictedStatuses.includes(selectedPackage.estado)) {
       toast({
         variant: "destructive",
         title: "Acción no permitida",
-        description: "No se puede editar un paquete que ya está en proceso de entrega final o finalizado."
+        description: "No se puede editar este paquete debido a su estado actual."
       });
       return;
     }
@@ -183,24 +181,58 @@ export default function BusinessPackagesPage() {
     }
   };
 
+  const handleAnularPaquete = async () => {
+    if (!selectedPackage) return;
+    
+    if (!confirm('¿Estás seguro de anular este pedido y solicitar el retorno a origen? Esta acción es irreversible.')) return;
+
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('paquetes')
+        .update({
+          estado: 'anulado_retornar'
+        })
+        .eq('id', selectedPackage.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Paquete Anulado",
+        description: "El estado se ha actualizado a 'Anulado - Retornar a origen'."
+      });
+      
+      setIsEditModalOpen(false);
+      if (userId) fetchMisPaquetes(userId);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo anular el paquete."
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'entregado': return <Badge className="bg-green-500/20 text-green-400 border-green-500/50">Entregado</Badge>;
       case 'llegado': return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/50">Llegado</Badge>;
       case 'en_ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">En Camino</Badge>;
       case 'cancelado': return <Badge className="bg-red-500/20 text-red-400 border-red-500/50">Cancelado</Badge>;
+      case 'anulado_retornar': return <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/50">Anulado - Retornar</Badge>;
       case 'buscando_operador': return <Badge variant="outline" className="text-accent border-accent/50">Buscando</Badge>;
       default: return <Badge variant="outline" className="text-orange-400 border-orange-400/50">Pendiente</Badge>;
     }
   };
 
   const isEditable = (status: string) => {
-    return !['llegado', 'entregado', 'cancelado'].includes(status);
+    return !['llegado', 'entregado', 'cancelado', 'anulado_retornar'].includes(status);
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row text-white overflow-hidden">
-      {/* Sidebar Desktop */}
       <aside className="hidden lg:flex w-64 bg-black/20 border-r border-white/10 flex-col p-6 shadow-2xl">
         <div className="flex items-center gap-3 mb-10">
           <Truck className="h-8 w-8 text-accent" />
@@ -271,7 +303,6 @@ export default function BusinessPackagesPage() {
                       <div className="space-y-2">
                         <p className="text-xs text-slate-400 flex items-center gap-1"><MapPin className="h-3 w-3" /> {pkg.direccion}</p>
                         
-                        {/* Indicadores de Alerta */}
                         <div className="flex flex-wrap gap-2 pt-1">
                           {pkg.alerta_no_contesta && (
                             <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50 text-[10px] gap-1">
@@ -309,7 +340,6 @@ export default function BusinessPackagesPage() {
         </div>
       </main>
 
-      {/* Modal de Edición */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
           <DialogHeader>
@@ -326,7 +356,7 @@ export default function BusinessPackagesPage() {
               {!isEditable(selectedPackage.estado) ? (
                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
                   <p className="text-xs text-red-400 font-medium">
-                    Este paquete ya no puede ser editado porque se encuentra en estado: <span className="font-bold uppercase">{selectedPackage.estado === 'en_ruta' ? 'En Camino' : selectedPackage.estado}</span>
+                    Este paquete ya no puede ser editado o anulado debido a su estado actual: <span className="font-bold uppercase">{selectedPackage.estado === 'anulado_retornar' ? 'Anulado' : selectedPackage.estado}</span>
                   </p>
                 </div>
               ) : (
@@ -376,25 +406,35 @@ export default function BusinessPackagesPage() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} className="text-slate-400">
+          <DialogFooter className="flex flex-col gap-2">
+            {selectedPackage && isEditable(selectedPackage.estado) && (
+              <>
+                <Button 
+                  onClick={handleUpdatePackage} 
+                  className="w-full bg-accent text-primary font-bold hover:bg-accent/90"
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  Guardar Cambios
+                </Button>
+                <Button 
+                  onClick={handleAnularPaquete} 
+                  variant="outline"
+                  className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10"
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+                  Anular y Retornar a Origen
+                </Button>
+              </>
+            )}
+            <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} className="w-full text-slate-400">
               Cancelar
             </Button>
-            {selectedPackage && isEditable(selectedPackage.estado) && (
-              <Button 
-                onClick={handleUpdatePackage} 
-                className="bg-accent text-primary font-bold hover:bg-accent/90"
-                disabled={isUpdating}
-              >
-                {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                Guardar Cambios
-              </Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Nav Mobile */}
       <nav className="fixed bottom-6 left-6 right-6 h-16 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl flex lg:hidden items-center justify-around z-50 shadow-2xl">
         <Link href="/dashboard/business-portal" className={cn("flex flex-col items-center justify-center gap-1 w-full h-full relative", pathname === '/dashboard/business-portal' ? "text-accent" : "text-slate-400")}>
           <PlusCircle className="h-5 w-5" /><span className="text-[10px] font-bold">Solicitud</span>
