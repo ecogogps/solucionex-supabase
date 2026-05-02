@@ -187,7 +187,7 @@ export default function BusinessPackagesPage() {
     switch (status) {
       case 'entregado': return <Badge className="bg-green-500/20 text-green-400 border-green-500/50">Entregado</Badge>;
       case 'llegado': return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/50">Llegado</Badge>;
-      case 'en_ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">En Ruta</Badge>;
+      case 'en_ruta': return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">En Camino</Badge>;
       case 'cancelado': return <Badge className="bg-red-500/20 text-red-400 border-red-500/50">Cancelado</Badge>;
       case 'buscando_operador': return <Badge variant="outline" className="text-accent border-accent/50">Buscando</Badge>;
       default: return <Badge variant="outline" className="text-orange-400 border-orange-400/50">Pendiente</Badge>;
@@ -326,7 +326,7 @@ export default function BusinessPackagesPage() {
               {!isEditable(selectedPackage.estado) ? (
                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
                   <p className="text-xs text-red-400 font-medium">
-                    Este paquete ya no puede ser editado porque se encuentra en estado: <span className="font-bold uppercase">{selectedPackage.estado}</span>
+                    Este paquete ya no puede ser editado porque se encuentra en estado: <span className="font-bold uppercase">{selectedPackage.estado === 'en_ruta' ? 'En Camino' : selectedPackage.estado}</span>
                   </p>
                 </div>
               ) : (
