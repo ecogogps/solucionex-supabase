@@ -224,11 +224,9 @@ export default function MyPackagesPage() {
 
       toast({ title: "Paquete liberado", description: "El paquete está disponible nuevamente." });
       
-      // Cerrar de forma secuencial y forzar limpieza de UI
       setIsReleaseConfirmOpen(false);
       setIsDetailOpen(false);
       
-      // Asegurar que pointer-events se restablezca
       document.body.style.pointerEvents = 'auto';
       
       if (userId) fetchData(userId);
@@ -384,7 +382,6 @@ export default function MyPackagesPage() {
       <Dialog open={isDetailOpen} onOpenChange={(open) => {
         setIsDetailOpen(open);
         if (!open) {
-          // Limpiar pointer-events al cerrar
           setTimeout(() => {
             document.body.style.pointerEvents = 'auto';
           }, 300);
@@ -405,7 +402,7 @@ export default function MyPackagesPage() {
               <div className="flex flex-col gap-2">
                 <Button 
                   variant="outline" 
-                  className={cn("h-12 w-full gap-2 border-yellow-500/50", selectedPackage.alerta_no_contesta ? "bg-yellow-600 text-white" : "text-yellow-500 hover:bg-yellow-500/10")} 
+                  className={cn("h-12 w-full gap-2 border-yellow-500/50", selectedPackage.alerta_no_contesta ? "bg-yellow-600 text-white" : "text-yellow-500")} 
                   onClick={toggleNoContesta} 
                   disabled={updatingStatus}
                 >
@@ -413,7 +410,7 @@ export default function MyPackagesPage() {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="h-12 w-full gap-2 border-blue-500/50 text-blue-400 hover:bg-blue-500/10" 
+                  className="h-12 w-full gap-2 border-blue-500/50 text-blue-400" 
                   onClick={() => { setIsPaymentChangeOpen(true); setIsDetailOpen(false); }} 
                   disabled={updatingStatus}
                 >
@@ -422,7 +419,7 @@ export default function MyPackagesPage() {
                 
                 <Button 
                   variant="outline" 
-                  className="h-12 w-full gap-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/10" 
+                  className="h-12 w-full gap-2 border-orange-500/30 text-orange-400" 
                   onClick={() => handleLiberateClick('Liberado por daño mecánico')}
                   disabled={updatingStatus}
                 >
@@ -430,7 +427,7 @@ export default function MyPackagesPage() {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="h-12 w-full gap-2 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10" 
+                  className="h-12 w-full gap-2 border-indigo-500/30 text-indigo-400" 
                   onClick={() => handleLiberateClick('Liberado por reasignación consentida')}
                   disabled={updatingStatus}
                 >
