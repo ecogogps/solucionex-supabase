@@ -413,7 +413,7 @@ export default function MyPackagesPage() {
                   onClick={toggleNoContesta} 
                   disabled={updatingStatus}
                 >
-                  <MessageSquareOff className="w-5 h-5" /> {selectedPackage.alerta_no_contesta ? "Alerta Activada" : "Sin respuesta del cliente"}
+                  <MessageSquareOff className="w-5 h-5" /> {selectedPackage.alerta_no_contesta ? "Alerta Activada" : "Cliente no contesta"}
                 </Button>
                 <Button 
                   variant="outline" 
