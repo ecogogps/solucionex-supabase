@@ -15,7 +15,11 @@ import {
   UserX,
   MessageSquareOff,
   RefreshCcw,
-  ExternalLink
+  ExternalLink,
+  Edit2,
+  Phone,
+  CreditCard,
+  Save
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,6 +27,17 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 
 interface PaqueteData {
@@ -31,7 +46,9 @@ interface PaqueteData {
   tipo: string;
   estado: string;
   direccion: string;
+  telefono: string;
   valor_pedido: number;
+  metodo_pago: string;
   created_at: string;
   novedad?: string;
   alerta_no_contesta?: boolean;
@@ -45,8 +62,20 @@ export default function BusinessPackagesPage() {
   const [alertCount, setAlertCount] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+  
+  // Estados para edición
+  const [selectedPackage, setSelectedPackage] = useState<PaqueteData | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    direccion: '',
+    telefono: '',
+    metodo_pago: ''
+  });
+
   const pathname = usePathname();
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     setIsMounted(true);
@@ -89,7 +118,6 @@ export default function BusinessPackagesPage() {
       const packages = data || [];
       setMisPaquetes(packages);
       
-      // Contar alertas activas
       const count = packages.filter(p => p.alerta_no_contesta || p.alerta_cambio_pago).length;
       setAlertCount(count);
 
@@ -97,6 +125,61 @@ export default function BusinessPackagesPage() {
       console.error("Error fetching packages:", error);
     } finally {
       setFetchingPackages(false);
+    }
+  };
+
+  const handleOpenEdit = (pkg: PaqueteData) => {
+    setSelectedPackage(pkg);
+    setEditFormData({
+      direccion: pkg.direccion,
+      telefono: pkg.telefono || '',
+      metodo_pago: pkg.metodo_pago
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdatePackage = async () => {
+    if (!selectedPackage) return;
+    
+    // Restricción: No se puede editar si ya llegó, se entregó o se canceló
+    const restrictedStatuses = ['llegado', 'entregado', 'cancelado'];
+    if (restrictedStatuses.includes(selectedPackage.estado)) {
+      toast({
+        variant: "destructive",
+        title: "Acción no permitida",
+        description: "No se puede editar un paquete que ya está en proceso de entrega final o finalizado."
+      });
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('paquetes')
+        .update({
+          direccion: editFormData.direccion,
+          telefono: editFormData.telefono,
+          metodo_pago: editFormData.metodo_pago
+        })
+        .eq('id', selectedPackage.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Paquete actualizado",
+        description: "Los cambios se han guardado correctamente."
+      });
+      
+      setIsEditModalOpen(false);
+      if (userId) fetchMisPaquetes(userId);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudieron guardar los cambios."
+      });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -109,6 +192,10 @@ export default function BusinessPackagesPage() {
       case 'buscando_operador': return <Badge variant="outline" className="text-accent border-accent/50">Buscando</Badge>;
       default: return <Badge variant="outline" className="text-orange-400 border-orange-400/50">Pendiente</Badge>;
     }
+  };
+
+  const isEditable = (status: string) => {
+    return !['llegado', 'entregado', 'cancelado'].includes(status);
   };
 
   return (
@@ -161,17 +248,24 @@ export default function BusinessPackagesPage() {
             ) : (
               <div className="space-y-4">
                 {misPaquetes.map((pkg) => (
-                  <Card key={pkg.id} className={cn(
-                    "bg-white/5 border-white/10 transition-all",
-                    (pkg.alerta_no_contesta || pkg.alerta_cambio_pago) && "animate-pulse-yellow border-yellow-500/40"
-                  )}>
+                  <Card 
+                    key={pkg.id} 
+                    className={cn(
+                      "bg-white/5 border-white/10 transition-all cursor-pointer hover:bg-white/10 group",
+                      (pkg.alerta_no_contesta || pkg.alerta_cambio_pago) && "animate-pulse-yellow border-yellow-500/40"
+                    )}
+                    onClick={() => handleOpenEdit(pkg)}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-white">Guía: {pkg.guia_numero}</p>
                           {getStatusBadge(pkg.estado)}
                         </div>
-                        <p className="text-lg font-bold text-accent">${pkg.valor_pedido}</p>
+                        <div className="flex items-center gap-3">
+                          <p className="text-lg font-bold text-accent">${pkg.valor_pedido}</p>
+                          {isEditable(pkg.estado) && <Edit2 className="h-4 w-4 text-slate-500 group-hover:text-accent transition-colors" />}
+                        </div>
                       </div>
 
                       <div className="space-y-2">
@@ -190,7 +284,13 @@ export default function BusinessPackagesPage() {
                                 <RefreshCcw className="w-3 h-3" /> CAMBIO DE PAGO
                               </Badge>
                               {pkg.imagen_pago_url && (
-                                <a href={pkg.imagen_pago_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent flex items-center gap-1 hover:underline">
+                                <a 
+                                  href={pkg.imagen_pago_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="text-[10px] text-accent flex items-center gap-1 hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <ExternalLink className="w-3 h-3" /> Ver Comprobante
                                 </a>
                               )}
@@ -208,6 +308,91 @@ export default function BusinessPackagesPage() {
           </div>
         </div>
       </main>
+
+      {/* Modal de Edición */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit2 className="h-5 w-5 text-accent" /> Gestionar Paquete
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Guía: {selectedPackage?.guia_numero}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPackage && (
+            <div className="space-y-4 py-4">
+              {!isEditable(selectedPackage.estado) ? (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <p className="text-xs text-red-400 font-medium">
+                    Este paquete ya no puede ser editado porque se encuentra en estado: <span className="font-bold uppercase">{selectedPackage.estado}</span>
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-slate-400 flex items-center gap-2">
+                      <MapPin className="h-3 w-3" /> Dirección de Entrega
+                    </Label>
+                    <Input 
+                      value={editFormData.direccion} 
+                      onChange={(e) => setEditFormData({...editFormData, direccion: e.target.value})}
+                      className="bg-white/5 border-white/10 focus:ring-accent"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-400 flex items-center gap-2">
+                      <Phone className="h-3 w-3" /> Teléfono del Cliente
+                    </Label>
+                    <Input 
+                      value={editFormData.telefono} 
+                      onChange={(e) => setEditFormData({...editFormData, telefono: e.target.value})}
+                      className="bg-white/5 border-white/10 focus:ring-accent"
+                      placeholder="Ej: 0999999999"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-400 flex items-center gap-2">
+                      <CreditCard className="h-3 w-3" /> Método de Pago
+                    </Label>
+                    <Select 
+                      value={editFormData.metodo_pago} 
+                      onValueChange={(v) => setEditFormData({...editFormData, metodo_pago: v})}
+                    >
+                      <SelectTrigger className="bg-white/5 border-white/10">
+                        <SelectValue placeholder="Seleccionar" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-white/10 text-white">
+                        <SelectItem value="transferencia">Transferencia</SelectItem>
+                        <SelectItem value="efectivo">Efectivo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} className="text-slate-400">
+              Cancelar
+            </Button>
+            {selectedPackage && isEditable(selectedPackage.estado) && (
+              <Button 
+                onClick={handleUpdatePackage} 
+                className="bg-accent text-primary font-bold hover:bg-accent/90"
+                disabled={isUpdating}
+              >
+                {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                Guardar Cambios
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Nav Mobile */}
       <nav className="fixed bottom-6 left-6 right-6 h-16 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl flex lg:hidden items-center justify-around z-50 shadow-2xl">
