@@ -9,13 +9,6 @@ import {
   PlusCircle, 
   Loader2,
   MapPin,
-  Clock,
-  CheckCircle2,
-  MapPinned,
-  UserX,
-  MessageSquareOff,
-  RefreshCcw,
-  ExternalLink,
   Edit2,
   Phone,
   CreditCard,
@@ -24,7 +17,12 @@ import {
   Printer,
   Calendar,
   Hash,
-  DollarSign
+  DollarSign,
+  MessageSquareOff,
+  RefreshCcw,
+  ExternalLink,
+  UserX,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -240,7 +238,7 @@ export default function BusinessPackagesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col lg:flex-row text-white overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col lg:flex-row text-white overflow-hidden print:bg-white print:text-black">
       {/* Sidebar - Oculto en impresión */}
       <aside className="hidden lg:flex w-64 bg-black/20 border-r border-white/10 flex-col p-6 shadow-2xl print:hidden">
         <div className="flex items-center gap-3 mb-10">
@@ -269,25 +267,25 @@ export default function BusinessPackagesPage() {
         </Button>
       </aside>
 
-      <main className="flex-1 h-screen overflow-y-auto pb-24 lg:pb-8 print:h-auto print:overflow-visible print:pb-0">
-        <header className="lg:hidden flex items-center justify-between p-4 border-b border-white/10 bg-black/10 backdrop-blur-md sticky top-0 z-40 print:hidden">
+      <main className="flex-1 h-screen overflow-y-auto pb-24 lg:pb-8 print:hidden">
+        <header className="lg:hidden flex items-center justify-between p-4 border-b border-white/10 bg-black/10 backdrop-blur-md sticky top-0 z-40">
           <div className="flex items-center gap-2"><Truck className="h-6 w-6 text-accent" /><span className="font-bold">Solucionex</span></div>
           <div className="text-xs font-medium text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10">Portal Empresa</div>
         </header>
 
-        <div className="p-4 lg:p-8 flex justify-center print:p-0">
-          <div className="w-full max-w-2xl space-y-6 print:max-w-none">
-            <div className="flex justify-between items-center print:hidden">
+        <div className="p-4 lg:p-8 flex justify-center">
+          <div className="w-full max-w-2xl space-y-6">
+            <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Mis Paquetes</h2>
               {alertCount > 0 && <Badge className="bg-red-500/20 text-red-400 border-red-500/50 animate-pulse">{alertCount} ALERTAS ACTIVAS</Badge>}
             </div>
 
             {fetchingPackages ? (
-              <div className="flex flex-col items-center py-20 print:hidden"><Loader2 className="h-8 w-8 animate-spin text-accent mb-4" /><p className="text-slate-400">Cargando...</p></div>
+              <div className="flex flex-col items-center py-20"><Loader2 className="h-8 w-8 animate-spin text-accent mb-4" /><p className="text-slate-400">Cargando...</p></div>
             ) : misPaquetes.length === 0 ? (
-              <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center print:hidden"><Package className="h-12 w-12 text-slate-500 mx-auto mb-4" /><h3 className="text-lg font-semibold">Sin paquetes</h3></div>
+              <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center"><Package className="h-12 w-12 text-slate-500 mx-auto mb-4" /><h3 className="text-lg font-semibold">Sin paquetes</h3></div>
             ) : (
-              <div className="space-y-4 print:hidden">
+              <div className="space-y-4">
                 {misPaquetes.map((pkg) => (
                   <Card 
                     key={pkg.id} 
@@ -349,187 +347,189 @@ export default function BusinessPackagesPage() {
         </div>
       </main>
 
-      {/* Template de Impresión (Solo visible al imprimir) */}
-      {selectedPackage && (
-        <div className="hidden print:block p-8 text-black bg-white min-h-screen">
-          <div className="border-2 border-black p-6 space-y-6">
-            <div className="flex justify-between items-start border-b-2 border-black pb-4">
-              <div>
-                <h1 className="text-3xl font-bold">SOLUCIONEX</h1>
-                <p className="text-sm">Logística y Entregas Profesionales</p>
-              </div>
-              <div className="text-right">
-                <p className="font-bold">GUÍA DE TRANSPORTE</p>
-                <p className="text-2xl font-mono">#{selectedPackage.guia_numero}</p>
-                <p className="text-xs">Fecha: {new Date(selectedPackage.created_at).toLocaleString()}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-8 text-sm">
-              <div className="space-y-4">
-                <div>
-                  <p className="font-bold border-b border-black mb-1">DESTINATARIO</p>
-                  <p className="text-base font-medium">{selectedPackage.direccion}</p>
-                  <p className="text-base font-medium">Telf: {selectedPackage.telefono || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="font-bold border-b border-black mb-1">DETALLES DEL PEDIDO</p>
-                  <p>Tipo: <span className="capitalize">{selectedPackage.tipo}</span></p>
-                  <p>Estado Actual: <span className="uppercase font-bold">{selectedPackage.estado.replace('_', ' ')}</span></p>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="bg-gray-100 p-4 border border-black text-center">
-                  <p className="text-xs font-bold uppercase">Valor a Cobrar</p>
-                  <p className="text-4xl font-bold">${selectedPackage.valor_pedido}</p>
-                  <p className="text-sm font-medium mt-1 uppercase">Pago: {selectedPackage.metodo_pago}</p>
-                </div>
-                {selectedPackage.nota && (
-                  <div>
-                    <p className="font-bold border-b border-black mb-1">INSTRUCCIONES</p>
-                    <p className="italic text-xs">{selectedPackage.nota}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {(selectedPackage.novedad || selectedPackage.alerta_no_contesta || selectedPackage.alerta_cambio_pago) && (
-              <div className="bg-gray-50 p-3 border border-dashed border-black">
-                <p className="font-bold text-xs mb-1">OBSERVACIONES DE RUTA:</p>
-                {selectedPackage.alerta_no_contesta && <p className="text-xs">• Cliente no contesta llamadas/mensajes.</p>}
-                {selectedPackage.alerta_cambio_pago && <p className="text-xs">• Reporte de cambio de método de pago.</p>}
-                {selectedPackage.novedad && <p className="text-xs">• {selectedPackage.novedad}</p>}
-              </div>
-            )}
-
-            <div className="pt-12 grid grid-cols-2 gap-12 text-center">
-              <div>
-                <div className="border-t border-black mt-12 pt-1 text-xs">Firma del Operador</div>
-              </div>
-              <div>
-                <div className="border-t border-black mt-12 pt-1 text-xs">Recibido Conforme (Firma y Cédula)</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md w-[95vw] rounded-xl print:hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-accent" /> Gestionar Paquete
-            </DialogTitle>
-            <DialogDescription className="text-slate-400">
-              Información de la Guía: {selectedPackage?.guia_numero}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md w-[95vw] rounded-xl print:bg-white print:text-black print:border-none print:shadow-none print:max-w-none print:w-full print:p-0">
+          {/* Contenido Web - Oculto en impresión */}
+          <div className="print:hidden">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-accent" /> Gestionar Paquete
+              </DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Información de la Guía: {selectedPackage?.guia_numero}
+              </DialogDescription>
+            </DialogHeader>
 
-          {selectedPackage && (
-            <div className="space-y-4 py-4">
-              {/* Información Dinámica según estado */}
-              <div className="p-3 bg-white/5 border border-white/10 rounded-lg space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-500 flex items-center gap-1"><Calendar className="w-3 h-3" /> Registro</span>
-                  <span className="text-xs">{new Date(selectedPackage.created_at).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-500 flex items-center gap-1"><Hash className="w-3 h-3" /> Estado Actual</span>
-                  <span className="scale-75 origin-right">{getStatusBadge(selectedPackage.estado)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-500 flex items-center gap-1"><DollarSign className="w-3 h-3" /> Valor Total</span>
-                  <span className="font-bold text-accent">${selectedPackage.valor_pedido}</span>
-                </div>
-              </div>
-
-              {!isEditable(selectedPackage.estado) ? (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-                  <p className="text-xs text-red-400 font-medium">
-                    Este paquete ya no puede ser editado o anulado. Estado: <span className="font-bold uppercase">{selectedPackage.estado.replace('_', ' ')}</span>
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-slate-400 flex items-center gap-2">
-                      <MapPin className="h-3 w-3" /> Dirección de Entrega
-                    </Label>
-                    <Input 
-                      value={editFormData.direccion} 
-                      onChange={(e) => setEditFormData({...editFormData, direccion: e.target.value})}
-                      className="bg-white/5 border-white/10 focus-visible:ring-accent"
-                    />
+            {selectedPackage && (
+              <div className="space-y-4 py-4">
+                <div className="p-3 bg-white/5 border border-white/10 rounded-lg space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-500 flex items-center gap-1"><Calendar className="w-3 h-3" /> Registro</span>
+                    <span className="text-xs">{new Date(selectedPackage.created_at).toLocaleDateString()}</span>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-500 flex items-center gap-1"><Hash className="w-3 h-3" /> Estado Actual</span>
+                    <span className="scale-75 origin-right">{getStatusBadge(selectedPackage.estado)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-500 flex items-center gap-1"><DollarSign className="w-3 h-3" /> Valor Total</span>
+                    <span className="font-bold text-accent">${selectedPackage.valor_pedido}</span>
+                  </div>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                {!isEditable(selectedPackage.estado) ? (
+                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <p className="text-xs text-red-400 font-medium">
+                      Este paquete ya no puede ser editado o anulado. Estado: <span className="font-bold uppercase">{selectedPackage.estado.replace('_', ' ')}</span>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
                     <div className="space-y-2">
                       <Label className="text-slate-400 flex items-center gap-2">
-                        <Phone className="h-3 w-3" /> Teléfono
+                        <MapPin className="h-3 w-3" /> Dirección de Entrega
                       </Label>
                       <Input 
-                        value={editFormData.telefono} 
-                        onChange={(e) => setEditFormData({...editFormData, telefono: e.target.value})}
+                        value={editFormData.direccion} 
+                        onChange={(e) => setEditFormData({...editFormData, direccion: e.target.value})}
                         className="bg-white/5 border-white/10 focus-visible:ring-accent"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-slate-400 flex items-center gap-2">
-                        <CreditCard className="h-3 w-3" /> Pago
-                      </Label>
-                      <Select 
-                        value={editFormData.metodo_pago} 
-                        onValueChange={(v) => setEditFormData({...editFormData, metodo_pago: v})}
-                      >
-                        <SelectTrigger className="bg-white/5 border-white/10">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-white/10 text-white">
-                          <SelectItem value="transferencia">Transferencia</SelectItem>
-                          <SelectItem value="efectivo">Efectivo</SelectItem>
-                        </SelectContent>
-                      </Select>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-slate-400 flex items-center gap-2">
+                          <Phone className="h-3 w-3" /> Teléfono
+                        </Label>
+                        <Input 
+                          value={editFormData.telefono} 
+                          onChange={(e) => setEditFormData({...editFormData, telefono: e.target.value})}
+                          className="bg-white/5 border-white/10 focus-visible:ring-accent"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-slate-400 flex items-center gap-2">
+                          <CreditCard className="h-3 w-3" /> Pago
+                        </Label>
+                        <Select 
+                          value={editFormData.metodo_pago} 
+                          onValueChange={(v) => setEditFormData({...editFormData, metodo_pago: v})}
+                        >
+                          <SelectTrigger className="bg-white/5 border-white/10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-800 border-white/10 text-white">
+                            <SelectItem value="transferencia">Transferencia</SelectItem>
+                            <SelectItem value="efectivo">Efectivo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter className="flex flex-col gap-2">
+              <Button 
+                onClick={handlePrint} 
+                variant="outline"
+                className="w-full border-accent/50 text-accent h-12 hover:bg-transparent"
+              >
+                <Printer className="h-4 w-4 mr-2" /> Imprimir Guía
+              </Button>
+              
+              {selectedPackage && isEditable(selectedPackage.estado) && (
+                <>
+                  <Button 
+                    onClick={handleUpdatePackage} 
+                    className="w-full bg-accent text-primary font-bold h-12"
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                    Guardar Cambios
+                  </Button>
+                  <Button 
+                    onClick={handleAnularPaquete} 
+                    variant="outline"
+                    className="w-full border-red-500/50 text-red-400 h-12 hover:bg-transparent"
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+                    Anular Pedido
+                  </Button>
+                </>
               )}
+              <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} className="w-full text-slate-400 hover:bg-transparent">
+                Cerrar
+              </Button>
+            </DialogFooter>
+          </div>
+
+          {/* Template de Impresión - SOLO VISIBLE EN IMPRESIÓN */}
+          {selectedPackage && (
+            <div className="hidden print:block p-8 bg-white text-black min-h-screen font-sans">
+              <div className="border-2 border-black p-6 space-y-6">
+                <div className="flex justify-between items-start border-b-2 border-black pb-4">
+                  <div>
+                    <h1 className="text-3xl font-bold">SOLUCIONEX</h1>
+                    <p className="text-sm">Logística y Entregas Profesionales</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold">GUÍA DE TRANSPORTE</p>
+                    <p className="text-2xl font-mono">#{selectedPackage.guia_numero}</p>
+                    <p className="text-xs">Fecha: {new Date(selectedPackage.created_at).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8 text-sm">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="font-bold border-b border-black mb-1 text-[10px]">DESTINATARIO</p>
+                      <p className="text-base font-medium">{selectedPackage.direccion}</p>
+                      <p className="text-base font-medium">Telf: {selectedPackage.telefono || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="font-bold border-b border-black mb-1 text-[10px]">DETALLES DEL PEDIDO</p>
+                      <p>Tipo: <span className="capitalize">{selectedPackage.tipo}</span></p>
+                      <p>Estado Actual: <span className="uppercase font-bold">{selectedPackage.estado.replace('_', ' ')}</span></p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="bg-gray-100 p-4 border border-black text-center">
+                      <p className="text-[10px] font-bold uppercase">Valor a Cobrar</p>
+                      <p className="text-4xl font-bold">${selectedPackage.valor_pedido}</p>
+                      <p className="text-sm font-medium mt-1 uppercase">Pago: {selectedPackage.metodo_pago}</p>
+                    </div>
+                    {selectedPackage.nota && (
+                      <div>
+                        <p className="font-bold border-b border-black mb-1 text-[10px]">INSTRUCCIONES</p>
+                        <p className="italic text-xs">{selectedPackage.nota}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {(selectedPackage.novedad || selectedPackage.alerta_no_contesta || selectedPackage.alerta_cambio_pago) && (
+                  <div className="bg-gray-50 p-3 border border-dashed border-black">
+                    <p className="font-bold text-[10px] mb-1 uppercase">Observaciones de Ruta:</p>
+                    {selectedPackage.alerta_no_contesta && <p className="text-xs">• Cliente no contesta llamadas/mensajes.</p>}
+                    {selectedPackage.alerta_cambio_pago && <p className="text-xs">• Reporte de cambio de método de pago.</p>}
+                    {selectedPackage.novedad && <p className="text-xs">• {selectedPackage.novedad}</p>}
+                  </div>
+                )}
+
+                <div className="pt-12 grid grid-cols-2 gap-12 text-center">
+                  <div>
+                    <div className="border-t border-black mt-12 pt-1 text-[10px] uppercase">Firma del Operador</div>
+                  </div>
+                  <div>
+                    <div className="border-t border-black mt-12 pt-1 text-[10px] uppercase">Recibido Conforme (Firma y Cédula)</div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
-
-          <DialogFooter className="flex flex-col gap-2">
-            <Button 
-              onClick={handlePrint} 
-              variant="outline"
-              className="w-full border-accent/50 text-accent h-12 hover:bg-transparent"
-            >
-              <Printer className="h-4 w-4 mr-2" /> Imprimir Guía
-            </Button>
-            
-            {selectedPackage && isEditable(selectedPackage.estado) && (
-              <>
-                <Button 
-                  onClick={handleUpdatePackage} 
-                  className="w-full bg-accent text-primary font-bold h-12"
-                  disabled={isUpdating}
-                >
-                  {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  Guardar Cambios
-                </Button>
-                <Button 
-                  onClick={handleAnularPaquete} 
-                  variant="outline"
-                  className="w-full border-red-500/50 text-red-400 h-12 hover:bg-transparent"
-                  disabled={isUpdating}
-                >
-                  {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />}
-                  Anular Pedido
-                </Button>
-              </>
-            )}
-            <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} className="w-full text-slate-400 hover:bg-transparent">
-              Cerrar
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
