@@ -126,7 +126,7 @@ export default function MyPackagesPage() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [userId]);
+  }, [userId, selectedPackage?.id]);
 
   const fetchData = async (currentUserId: string) => {
     try {
@@ -142,7 +142,7 @@ export default function MyPackagesPage() {
       setMyDeliveries(data || []);
 
       if (selectedPackage) {
-        const updatedPackage = data?.find(p => p.id === selectedPackage.id);
+        const updatedPackage = (data || []).find(p => p.id === selectedPackage.id);
         if (updatedPackage) setSelectedPackage(updatedPackage);
         else setIsDetailOpen(false);
       }
@@ -156,7 +156,7 @@ export default function MyPackagesPage() {
   const handleUpdateStatus = async (pkgId: string, newStatus: string) => {
     if (newStatus === 'cancelado' && !novedad.trim()) {
       setNovedadError(true);
-      toast({ variant: "destructive", title: "Novedad requerida" });
+      toast({ variant: "destructive", title: "Novedad requerida", description: "Debes registrar una novedad." });
       return;
     }
 
@@ -169,7 +169,11 @@ export default function MyPackagesPage() {
       if (error) throw error;
 
       toast({ title: "Estado actualizado" });
-      if (newStatus === 'entregado' || newStatus === 'cancelado') setIsDetailOpen(false);
+      if (newStatus === 'entregado' || newStatus === 'cancelado') {
+        setIsDetailOpen(false);
+        setNovedad('');
+        setNovedadError(false);
+      }
       if (userId) fetchData(userId);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al actualizar" });
@@ -288,14 +292,13 @@ export default function MyPackagesPage() {
                 <Card 
                   key={pkg.id} 
                   className={cn("bg-white/10 border-accent/20 cursor-pointer active:scale-[0.98] transition-all", pkg.alerta_no_contesta && "animate-pulse-yellow border-yellow-500/50")}
-                  onClick={() => { setSelectedPackage(pkg); setIsDetailOpen(true); }}
+                  onClick={() => { setSelectedPackage(pkg); setNovedad(''); setNovedadError(false); setIsDetailOpen(true); }}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="bg-accent/20 p-2 rounded-lg relative">
                           <Package className="h-5 w-5 text-accent" />
-                          {pkg.alerta_no_contesta && <span className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-500 rounded-full animate-ping" />}
                         </div>
                         <div className="flex flex-col">
                           <span className="text-xs text-slate-400 font-bold">{pkg.empresas?.nombre}</span>
@@ -329,23 +332,23 @@ export default function MyPackagesPage() {
                 {getStatusBadge(selectedPackage.estado)}
               </div>
 
-              {/* Nuevos Botones de Alerta */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Sección de Alertas en Columna */}
+              <div className="flex flex-col gap-2">
                 <Button 
                   variant="outline" 
-                  className={cn("h-12 text-[10px] gap-2 border-yellow-500/50", selectedPackage.alerta_no_contesta ? "bg-yellow-600 text-white" : "text-yellow-500 hover:bg-yellow-500/10")} 
+                  className={cn("h-12 w-full gap-2 border-yellow-500/50", selectedPackage.alerta_no_contesta ? "bg-yellow-600 text-white" : "text-yellow-500 hover:bg-yellow-500/10")} 
                   onClick={toggleNoContesta} 
                   disabled={updatingStatus}
                 >
-                  <MessageSquareOff className="w-4 h-4" /> {selectedPackage.alerta_no_contesta ? "Reportado" : "Sin respuesta"}
+                  <MessageSquareOff className="w-5 h-5" /> {selectedPackage.alerta_no_contesta ? "Alerta Activada" : "Sin respuesta del cliente"}
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="h-12 text-[10px] gap-2 border-blue-500/50 text-blue-400 hover:bg-blue-500/10" 
+                  className="h-12 w-full gap-2 border-blue-500/50 text-blue-400 hover:bg-blue-500/10" 
                   onClick={() => { setIsPaymentChangeOpen(true); setIsDetailOpen(false); }} 
                   disabled={updatingStatus}
                 >
-                  <RefreshCcw className="w-4 h-4" /> Cambiar Pago
+                  <RefreshCcw className="w-5 h-5" /> Reportar Cambio de Pago
                 </Button>
               </div>
 
@@ -405,21 +408,60 @@ export default function MyPackagesPage() {
               </div>
             </div>
           )}
-          <DialogFooter className="flex flex-col gap-2">
-            {selectedPackage?.estado === 'pendiente' && <Button className="w-full bg-blue-600 h-12 font-bold" onClick={() => handleUpdateStatus(selectedPackage.id, 'en_ruta')} disabled={updatingStatus}>{updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <Navigation className="mr-2 h-5 w-5" />} Tomar y Salir a Ruta</Button>}
-            {selectedPackage?.estado === 'en_ruta' && <Button className="w-full bg-orange-600 h-12 font-bold" onClick={() => handleUpdateStatus(selectedPackage.id, 'llegado')} disabled={updatingStatus}>{updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <MapPinned className="mr-2 h-5 w-5" />} He llegado</Button>}
-            {(selectedPackage?.estado === 'llegado' || selectedPackage?.estado === 'en_ruta') && (
-              <div className="flex flex-col gap-2 w-full">
-                <Button className="w-full bg-green-600 h-12 font-bold" onClick={() => handleUpdateStatus(selectedPackage!.id, 'entregado')} disabled={updatingStatus}>{updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2 h-5 w-5" />} Entregado</Button>
-                <Button className="w-full bg-red-600 h-12 font-bold" onClick={() => handleUpdateStatus(selectedPackage!.id, 'cancelado')} disabled={updatingStatus}>{updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <UserX className="mr-2 h-5 w-5" />} No ejecutada</Button>
-              </div>
+
+          {/* Footer con Botones en Columna */}
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            {selectedPackage?.estado === 'pendiente' && (
+              <Button 
+                className="w-full bg-blue-600 h-12 font-bold" 
+                onClick={() => handleUpdateStatus(selectedPackage.id, 'en_ruta')} 
+                disabled={updatingStatus}
+              >
+                {updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <Navigation className="mr-2 h-5 w-5" />}
+                Tomar y Salir a Ruta
+              </Button>
             )}
-            <Button variant="ghost" onClick={() => setIsDetailOpen(false)} className="w-full text-slate-400">Cerrar</Button>
+            
+            {selectedPackage?.estado === 'en_ruta' && (
+              <Button 
+                className="w-full bg-orange-600 h-12 font-bold" 
+                onClick={() => handleUpdateStatus(selectedPackage.id, 'llegado')} 
+                disabled={updatingStatus}
+              >
+                {updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <MapPinned className="mr-2 h-5 w-5" />}
+                He llegado
+              </Button>
+            )}
+
+            {(selectedPackage?.estado === 'llegado' || selectedPackage?.estado === 'en_ruta') && (
+              <>
+                <Button 
+                  className="w-full bg-green-600 h-12 font-bold" 
+                  onClick={() => handleUpdateStatus(selectedPackage!.id, 'entregado')} 
+                  disabled={updatingStatus}
+                >
+                  {updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
+                  Marcar como Entregado
+                </Button>
+                <Button 
+                  className="w-full bg-red-600 h-12 font-bold" 
+                  onClick={() => handleUpdateStatus(selectedPackage!.id, 'cancelado')} 
+                  disabled={updatingStatus}
+                >
+                  {updatingStatus ? <Loader2 className="animate-spin mr-2" /> : <UserX className="mr-2 h-5 w-5" />}
+                  Entrega no ejecutada
+                </Button>
+              </>
+            )}
+            
+            <Button variant="ghost" onClick={() => setIsDetailOpen(false)} className="w-full h-12 text-slate-400">
+              Cerrar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Modal Cambio de Pago con Previsualización */}
+      {/* Modal Cambio de Pago en Columna */}
       <Dialog open={isPaymentChangeOpen} onOpenChange={setIsPaymentChangeOpen}>
         <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
           <DialogHeader><DialogTitle>Reportar Cambio de Pago</DialogTitle></DialogHeader>
@@ -443,17 +485,29 @@ export default function MyPackagesPage() {
                   <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => setPaymentImage(null)}><X className="h-4 w-4" /></Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="bg-white/5 border-white/10 gap-2" onClick={() => setShowCamera(true)}><Camera className="h-4 w-4" /> Cámara</Button>
-                  <Button variant="outline" className="bg-white/5 border-white/10 gap-2" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4" /> Adjuntar</Button>
+                <div className="flex flex-col gap-2">
+                  <Button variant="outline" className="w-full h-12 bg-white/5 border-white/10 gap-2" onClick={() => setShowCamera(true)}>
+                    <Camera className="h-5 w-5" /> Usar Cámara
+                  </Button>
+                  <Button variant="outline" className="w-full h-12 bg-white/5 border-white/10 gap-2" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="h-5 w-5" /> Adjuntar Imagen
+                  </Button>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} />
                 </div>
               )}
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setIsPaymentChangeOpen(false)}>Cancelar</Button>
-            <Button className="bg-accent text-primary font-bold" onClick={submitPaymentChange} disabled={updatingStatus || !paymentImage || !newPaymentMethod}>Confirmar Cambio</Button>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <Button 
+              className="w-full h-12 bg-accent text-primary font-bold" 
+              onClick={submitPaymentChange} 
+              disabled={updatingStatus || !paymentImage || !newPaymentMethod}
+            >
+              Confirmar Cambio
+            </Button>
+            <Button variant="ghost" className="w-full h-12" onClick={() => setIsPaymentChangeOpen(false)}>
+              Cancelar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -463,7 +517,10 @@ export default function MyPackagesPage() {
           <DialogHeader><DialogTitle>Tomar Foto</DialogTitle></DialogHeader>
           <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline onCanPlay={() => videoRef.current?.play()} />
           <canvas ref={canvasRef} className="hidden" />
-          <DialogFooter><Button onClick={takePhoto} className="w-full bg-accent text-primary font-bold">Capturar</Button></DialogFooter>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <Button onClick={takePhoto} className="w-full h-12 bg-accent text-primary font-bold">Capturar</Button>
+            <Button variant="ghost" className="w-full h-12" onClick={() => setShowCamera(false)}>Cancelar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
