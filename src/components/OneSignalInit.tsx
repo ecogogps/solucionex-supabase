@@ -25,7 +25,7 @@ export default function OneSignalInit() {
                     type: 'push',
                     autoPrompt: true,
                     text: {
-                      actionMessage: 'Recibe notificaciones de tus entregas',
+                      actionMessage: 'Recibe notificaciones',
                       acceptButton: 'Permitir',
                       cancelButton: 'No',
                     },
